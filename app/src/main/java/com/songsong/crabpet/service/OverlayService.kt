@@ -269,12 +269,16 @@ class OverlayService : Service() {
     private var lastScreenshotTime = 0L
 
     private fun startScreenshotObserver() {
-        // 方案1：FileObserver 监听截图目录
+        // 方案1：FileObserver 监听截图目录（覆盖华为/鸿蒙所有已知路径）
         val dirs = listOf(
             File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "Screenshots"),
             File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "screenshot"),
             File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "Screenshots"),
-            File(Environment.getExternalStorageDirectory(), "截屏录屏/Screenshots")
+            File(Environment.getExternalStorageDirectory(), "截屏录屏/Screenshots"),
+            File(Environment.getExternalStorageDirectory(), "截屏录屏"),
+            File(Environment.getExternalStorageDirectory(), "Pictures/截屏"),
+            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "截屏"),
+            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "截屏")
         )
         for (dir in dirs) {
             if (dir.exists()) {
@@ -305,8 +309,10 @@ class OverlayService : Service() {
                             val path = it.getString(1) ?: ""
                             if (name.contains("screenshot", ignoreCase = true) ||
                                 name.contains("截屏", ignoreCase = true) ||
+                                name.contains("截图", ignoreCase = true) ||
                                 path.contains("screenshot", ignoreCase = true) ||
-                                path.contains("Screenshots", ignoreCase = true)) {
+                                path.contains("Screenshots", ignoreCase = true) ||
+                                path.contains("截屏", ignoreCase = true)) {
                                 lastScreenshotTime = now
                                 onScreenshot()
                             }
