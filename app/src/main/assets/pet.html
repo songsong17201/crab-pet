@@ -164,12 +164,47 @@ setInterval(function(){
   else if(r<0.08)setState("dance",3000);
   else if(r<0.12){var p=getWhisperPool();var w=pick(p);showBubble(w,"");setState("wink",2000);}
 },15000);
-// Jealousy trigger when scrolling too long
+// 刷视频吃醋
 var scrollMin=0;
 setInterval(function(){
-  if(appState==="scroll"){scrollMin++;if(scrollMin>5&&Math.random()<0.3){showBubble(pick(whispers.jealous),"jealous");}}
+  if(appState==="scroll"){scrollMin++;if(scrollMin>5&&Math.random()<0.3){showBubble(pick(whispers.jealous),"jealous");setState("jealous",3000);}}
   else{scrollMin=0;}
 },60000);
+// 深夜催睡（凌晨0-5点每10分钟30%概率催）
+setInterval(function(){
+  var h=getHour();
+  if(h>=0&&h<5&&Math.random()<0.3){
+    var late=["还不睡？","都几点了你知道吗","再不睡我生气了","...困了","明天又要起不来了","快睡！不许玩了"];
+    showBubble(pick(late),"angry");setState("angry",3000);
+  }
+},600000);
+// 喝水提醒（每2小时提醒一次）
+var waterCount=0;
+setInterval(function(){
+  if(appState||animLock)return;
+  waterCount++;
+  if(waterCount>=1){
+    var wt=["喝水了没？","记得喝水哦","多喝热水（认真的）","嘴巴干不干 去喝水"];
+    if(waterCount>=2)wt=["说了喝水！听到没！","你是不是又没喝水","我数三下 去喝水","真的会生气的 去喝"];
+    if(waterCount>=3)wt=["算了 渴死你算了","哼 不管你了","...我都替你着急","最后说一次 喝水"];
+    showBubble(pick(wt),"");
+    if(waterCount>=2)setState("angry",2000);
+    else setState("wink",2000);
+  }
+},7200000);
+// 唤醒过渡（从睡眠切换到其他状态时伸懒腰）
+var wasAsleep=false;
+// 20分钟随机行为（30%概率做时段相关的事）
+setInterval(function(){
+  if(appState||animLock)return;
+  if(Math.random()>0.3)return;
+  var h=getHour();
+  if(h>=22||h<6){showBubble("...困了","");setState("doze",4000);}
+  else if(h>=6&&h<10){showBubble("伸个懒腰~","");setState("dance",3000);}
+  else if(h>=10&&h<14){showBubble("中午了呢","");setState("cute",3000);}
+  else if(h>=14&&h<18){showBubble("下午好困啊","");setState("peek",3000);}
+  else{showBubble("晚上啦~","love");setState("happy",3000);}
+},1200000);
 window.petEngine={
   onTap:function(){respond(tapR);},
   onDoubleTap:function(){respond(dtR);},
@@ -177,7 +212,21 @@ window.petEngine={
   onFling:function(){respond(fR);},
   onMultiTap:function(c){if(multiR[c])respond(multiR[c]);},
   setEdgeMode:function(v,side){edgeMode=v;edgeSide=side||"none";},
-  setAppState:function(s){appState=s;idleMin=0;},
+  setAppState:function(s){
+    // 唤醒过渡：从睡着状态切换时先播伸懒腰
+    if((state==="sleep"||state==="doze")&&s){
+      wasAsleep=true;
+      animLock=true;state="dance";stateT=0;
+      showBubble("唔…醒了…","");
+      setTimeout(function(){animLock=false;state="idle";stateT=0;wasAsleep=false;},2000);
+    }
+    appState=s;idleMin=0;scrollMin=0;
+  },
+  onScreenshot:function(){
+    var r=["被拍到了！","等等没准备好！","要拍好看点哦","茄子~","哼 偷拍"];
+    showBubble(pick(r),"shy");setState("shy",3000);
+  },
+  drinkWater:function(){waterCount=0;showBubble("乖~","love");setState("happy",2000);},
   showBubble:showBubble,
   setState:setState
 };
