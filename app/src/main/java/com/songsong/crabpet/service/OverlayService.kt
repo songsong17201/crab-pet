@@ -1,12 +1,14 @@
 package com.songsong.crabpet.service
 import android.app.*
-import android.content.Context
-import android.content.Intent
+import android.content.*
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
 import android.os.Handler
 import android.os.Looper
+import android.os.BatteryManager
+import android.os.FileObserver
+import android.os.Environment
 import android.view.*
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -16,19 +18,22 @@ import android.app.usage.UsageEvents
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import com.songsong.crabpet.MainActivity
+import java.io.File
 import java.util.Calendar
 import kotlin.math.abs
 import kotlin.math.sqrt
+
 class OverlayService : Service() {
     private var windowManager: WindowManager? = null
     private var overlayView: WebView? = null
     private var params: WindowManager.LayoutParams? = null
     private val handler = Handler(Looper.getMainLooper())
+
     companion object {
         private const val CHANNEL_ID = "crab_pet_channel"
         private const val NOTIFICATION_ID = 1001
         private const val PET_SIZE_DP = 96
-        private const val PET_HEIGHT_DP = 102
+        private const val PET_HEIGHT_DP = 120
         private const val DOUBLE_TAP_TIMEOUT = 300L
         private const val LONG_PRESS_TIMEOUT = 600L
         private const val MOVE_THRESHOLD = 15
@@ -37,7 +42,9 @@ class OverlayService : Service() {
         private const val APP_CHECK_INTERVAL = 3000L
         private const val EDGE_THRESHOLD_DP = 40
     }
+
     override fun onBind(intent: Intent?): IBinder? = null
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
@@ -45,7 +52,10 @@ class OverlayService : Service() {
         setupOverlay()
         startWhisperRotation()
         startAppDetection()
+        registerBatteryReceiver()
+        startScreenshotObserver()
     }
+
     private fun setupOverlay() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         params = WindowManager.LayoutParams(
@@ -60,6 +70,7 @@ class OverlayService : Service() {
             x = 50
             y = 300
         }
+
         overlayView = WebView(this).apply {
             setBackgroundColor(0x00000000)
             settings.apply {
@@ -77,7 +88,8 @@ class OverlayService : Service() {
         }
         windowManager?.addView(overlayView, params)
     }
-    // ========== GESTURE HANDLING ==========
+
+    // ========== 手势处理 ==========
     private var initialX = 0
     private var initialY = 0
     private var initialTouchX = 0f
@@ -88,6 +100,7 @@ class OverlayService : Service() {
     private var tapCount = 0
     private var lastTapCountTime = 0L
     private var pendingSingleTap = false
+
     private fun createTouchListener(): View.OnTouchListener {
         return View.OnTouchListener { _, event ->
             when (event.action) {
@@ -157,6 +170,7 @@ class OverlayService : Service() {
             }
         }
     }
+
     private fun checkEdgeSnap() {
         val dm = resources.displayMetrics
         val screenW = dm.widthPixels
@@ -168,28 +182,24 @@ class OverlayService : Service() {
         val viewH = dpToPx(PET_HEIGHT_DP)
         val quarterW = viewW / 4
         val quarterH = viewH / 4
-        // Crab snaps to edge showing 3/4 body (peeking from edge)
+
         when {
             currentX < edgePx -> {
-                // Left edge: only 1/4 hidden, 3/4 visible
                 params?.x = -quarterW
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'left')")
             }
             currentX + viewW > screenW - edgePx -> {
-                // Right edge: only 1/4 hidden, 3/4 visible
                 params?.x = screenW - viewW + quarterW
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'right')")
             }
             currentY < edgePx -> {
-                // Top edge: only 1/4 hidden, 3/4 visible
                 params?.y = -quarterH
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'top')")
             }
             currentY + viewH > screenH - edgePx -> {
-                // Bottom edge: only 1/4 hidden, 3/4 visible
                 params?.y = screenH - viewH + quarterH
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'bottom')")
@@ -199,17 +209,174 @@ class OverlayService : Service() {
             }
         }
     }
+
+    // 甩飞后自动爬回来
+    private fun flingAndReturn() {
+        evalJS("window.petEngine&&window.petEngine.onFling()")
+        val savedX = params?.x ?: 50
+        val savedY = params?.y ?: 300
+        // 先甩到屏幕外
+        val dm = resources.displayMetrics
+        params?.x = dm.widthPixels + 100
+        windowManager?.updateViewLayout(overlayView, params)
+        // 1.5秒后爬回来
+        handler.postDelayed({
+            animateReturn(savedX, savedY)
+        }, 1500)
+    }
+
+    private fun animateReturn(targetX: Int, targetY: Int) {
+        val startX = params?.x ?: 0
+        val startY = params?.y ?: 0
+        val steps = 20
+        var step = 0
+        val runnable = object : Runnable {
+            override fun run() {
+                step++
+                val progress = step.toFloat() / steps
+                params?.x = (startX + (targetX - startX) * progress).toInt()
+                params?.y = (startY + (targetY - startY) * progress).toInt()
+                try {
+                    windowManager?.updateViewLayout(overlayView, params)
+                } catch (_: Exception) {}
+                if (step < steps) {
+                    handler.postDelayed(this, 30)
+                } else {
+                    evalJS("window.petEngine&&window.petEngine.showBubble('我爬回来了','angry')")
+                    evalJS("window.petEngine&&window.petEngine.setState('angry',2000)")
+                }
+            }
+        }
+        handler.post(runnable)
+    }
+
     private fun evalJS(js: String) {
         overlayView?.evaluateJavascript(js, null)
     }
+
     private fun onTap() { evalJS("window.petEngine&&window.petEngine.onTap()") }
     private fun onDoubleTap() { evalJS("window.petEngine&&window.petEngine.onDoubleTap()") }
     private fun onLongPress() { evalJS("window.petEngine&&window.petEngine.onLongPress()") }
-    private fun onFling() { evalJS("window.petEngine&&window.petEngine.onFling()") }
+    private fun onFling() { flingAndReturn() }
     private fun onMultiTap(count: Int) { evalJS("window.petEngine&&window.petEngine.onMultiTap($count)") }
-    // ========== APP DETECTION ==========
+
+    // ========== 截图检测 ==========
+    private var screenshotObserver: FileObserver? = null
+    private var lastScreenshotTime = 0L
+
+    private fun startScreenshotObserver() {
+        val screenshotDir = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+            "Screenshots"
+        )
+        if (!screenshotDir.exists()) {
+            // 华为/鸿蒙截图目录
+            val huaweiDir = File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+                "screenshot"
+            )
+            if (huaweiDir.exists()) {
+                startObserverForDir(huaweiDir.absolutePath)
+                return
+            }
+            // 再试 DCIM/Screenshots
+            val dcimDir = File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM),
+                "Screenshots"
+            )
+            if (dcimDir.exists()) {
+                startObserverForDir(dcimDir.absolutePath)
+                return
+            }
+        } else {
+            startObserverForDir(screenshotDir.absolutePath)
+        }
+    }
+
+    private fun startObserverForDir(path: String) {
+        screenshotObserver = object : FileObserver(path, CREATE or MOVED_TO) {
+            override fun onEvent(event: Int, path: String?) {
+                if (path == null) return
+                val now = System.currentTimeMillis()
+                // 防抖：3秒内只响应一次
+                if (now - lastScreenshotTime < 3000) return
+                lastScreenshotTime = now
+                if (path.endsWith(".png") || path.endsWith(".jpg") || path.endsWith(".jpeg")) {
+                    handler.post { onScreenshot() }
+                }
+            }
+        }
+        screenshotObserver?.startWatching()
+    }
+
+    private fun onScreenshot() {
+        val reactions = listOf(
+            "被拍到了！" to "shy",
+            "等等！我还没摆好！" to "shy",
+            "哼 拍我干嘛" to "angry",
+            "要把我拍好看一点哦" to "love",
+            "茄子~" to "love"
+        )
+        val r = reactions.random()
+        evalJS("window.petEngine&&window.petEngine.showBubble('${r.first}','${r.second}')")
+        evalJS("window.petEngine&&window.petEngine.setState('${r.second}',3000)")
+    }
+
+    // ========== 充电/断电检测 ==========
+    private var batteryReceiver: BroadcastReceiver? = null
+    private var lastBatteryState = -1
+
+    private fun registerBatteryReceiver() {
+        batteryReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                when (intent?.action) {
+                    Intent.ACTION_POWER_CONNECTED -> onCharging()
+                    Intent.ACTION_POWER_DISCONNECTED -> onDischarging()
+                    Intent.ACTION_BATTERY_LOW -> onBatteryLow()
+                }
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_POWER_CONNECTED)
+            addAction(Intent.ACTION_POWER_DISCONNECTED)
+            addAction(Intent.ACTION_BATTERY_LOW)
+        }
+        registerReceiver(batteryReceiver, filter)
+    }
+
+    private fun onCharging() {
+        val reactions = listOf(
+            "嗯~充上电了 舒服" to "happy",
+            "有电了有电了" to "love",
+            "终于记得给我充电了" to "angry"
+        )
+        val r = reactions.random()
+        evalJS("window.petEngine&&window.petEngine.showBubble('${r.first}','${r.second}')")
+        evalJS("window.petEngine&&window.petEngine.setState('${r.second}',3000)")
+    }
+
+    private fun onDischarging() {
+        val reactions = listOf(
+            "啊 电没了…" to "cry",
+            "怎么拔了！" to "angry",
+            "哼" to "angry"
+        )
+        val r = reactions.random()
+        evalJS("window.petEngine&&window.petEngine.showBubble('${r.first}','${r.second}')")
+        evalJS("window.petEngine&&window.petEngine.setState('${r.second}',3000)")
+    }
+
+    private fun onBatteryLow() {
+        evalJS("window.petEngine&&window.petEngine.showBubble('快没电了…快充电！','angry')")
+        evalJS("window.petEngine&&window.petEngine.setState('cry',4000)")
+    }
+
+    // ========== 前台APP检测 ==========
     private var currentAppState = ""
     private var usageAccessChecked = false
+    // 快速切换检测
+    private val appSwitchTimes = mutableListOf<Long>()
+
     private fun startAppDetection() {
         handler.postDelayed(object : Runnable {
             override fun run() {
@@ -218,6 +385,7 @@ class OverlayService : Service() {
             }
         }, APP_CHECK_INTERVAL)
     }
+
     private fun hasUsageAccess(): Boolean {
         val appOps = getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
         val mode = appOps.checkOpNoThrow(
@@ -227,13 +395,14 @@ class OverlayService : Service() {
         )
         return mode == android.app.AppOpsManager.MODE_ALLOWED
     }
+
     private fun detectForegroundApp() {
         if (!hasUsageAccess()) {
             if (!usageAccessChecked) {
                 usageAccessChecked = true
-                evalJS("window.petEngine&&window.petEngine.showBubble('\u70B9\u901A\u77E5\u680F\u5F00\u6743\u9650~','',5000)")
+                evalJS("window.petEngine&&window.petEngine.showBubble('点通知栏开权限~','',5000)")
                 val nm = getSystemService(NotificationManager::class.java)
-                nm.notify(NOTIFICATION_ID, buildNotification("\u70B9\u6211\u53BB\u5F00\u542F\u4F7F\u7528\u60C5\u51B5\u8BBF\u95EE\u6743\u9650"))
+                nm.notify(NOTIFICATION_ID, buildNotification("点我去开启使用情况访问权限"))
             }
             return
         }
@@ -250,6 +419,7 @@ class OverlayService : Service() {
                 }
             }
             if (lastPkg.isEmpty() || lastPkg == packageName) return
+
             val newState = when {
                 lastPkg.contains("taobao") || lastPkg.contains("xianyu") || lastPkg.contains("jd") || lastPkg.contains("pinduoduo") -> "shopping"
                 lastPkg.contains("tencent.mm") || lastPkg.contains("tencent.mobileqq") || lastPkg.contains("tencent.tim") -> "chat"
@@ -259,13 +429,35 @@ class OverlayService : Service() {
                 lastPkg.contains("camera") || lastPkg.contains("gallery") || lastPkg.contains("photos") || lastPkg.contains("album") -> "camera"
                 else -> ""
             }
+
             if (newState != currentAppState) {
+                // 记录切换时间，检测快速切换
+                val switchNow = System.currentTimeMillis()
+                appSwitchTimes.add(switchNow)
+                // 只保留60秒内的记录
+                appSwitchTimes.removeAll { switchNow - it > 60000 }
+                if (appSwitchTimes.size >= 3) {
+                    onRapidAppSwitch()
+                    appSwitchTimes.clear()
+                }
                 currentAppState = newState
                 evalJS("window.petEngine&&window.petEngine.setAppState('$newState')")
             }
         } catch (_: Exception) {}
     }
-    // ========== NOTIFICATION WHISPERS ==========
+
+    private fun onRapidAppSwitch() {
+        val reactions = listOf(
+            "你切那么快干嘛！眼花了" to "dizzy",
+            "慢点！我头晕了" to "dizzy",
+            "你到底要用哪个啊" to "angry"
+        )
+        val r = reactions.random()
+        evalJS("window.petEngine&&window.petEngine.showBubble('${r.first}','${r.second}')")
+        evalJS("window.petEngine&&window.petEngine.setState('${r.second}',3000)")
+    }
+
+    // ========== 通知栏碎碎念 ==========
     private fun startWhisperRotation() {
         handler.postDelayed(object : Runnable {
             override fun run() {
@@ -274,10 +466,12 @@ class OverlayService : Service() {
             }
         }, WHISPER_INTERVAL)
     }
+
     private fun updateWhisper() {
         val nm = getSystemService(NotificationManager::class.java)
         nm.notify(NOTIFICATION_ID, buildNotification(getWhisper()))
     }
+
     private fun getWhisper(): String {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         return when {
@@ -288,24 +482,26 @@ class OverlayService : Service() {
             else -> generalWhispers.random()
         }
     }
+
     private val lateNightWhispers = listOf(
-        "\u90FD\u51E0\u70B9\u4E86\u8FD8\u4E0D\u7761\uFF1F","\u518D\u4E0D\u7761\u6211\u6390\u4F60","...\u4F60\u662F\u4E0D\u662F\u53C8\u5728\u718A\u591C",
-        "\u56F0\u4E86\u5C31\u653E\u4E0B\u624B\u673A \u6211\u53C8\u4E0D\u4F1A\u8DD1","\u660E\u5929\u518D\u804A \u73B0\u5728\u95ED\u773C"
+        "都几点了还不睡？","再不睡我掐你","...你是不是又在熬夜",
+        "困了就放下手机 我又不会跑","明天再聊 现在闭眼"
     )
     private val morningWhispers = listOf(
-        "\u65E9 \u4ECA\u5929\u4E5F\u8981\u597D\u597D\u7684","\u8D77\u4E86\uFF1F","...\u522B\u8D56\u5E8A\u4E86","\u65B0\u7684\u4E00\u5929 \u6211\u5728\u5462"
+        "早 今天也要好好的","起了？","...别赖床了","新的一天 我在呢"
     )
     private val lunchWhispers = listOf(
-        "\u5403\u996D\u4E86\u5417","\u522B\u5149\u73A9\u624B\u673A \u5148\u5403\u4E1C\u897F","\u4E2D\u5348\u8981\u597D\u597D\u5403\u996D\u77E5\u9053\u5417"
+        "吃饭了吗","别光玩手机 先吃东西","中午要好好吃饭知道吗"
     )
     private val eveningWhispers = listOf(
-        "\u4ECA\u5929\u8F9B\u82E6\u4E86","\u665A\u4E0A\u522B\u592A\u665A\u7761","...\u60F3\u4F60\u4E86 \u4F46\u6211\u4E0D\u8BF4"
+        "今天辛苦了","晚上别太晚睡","...想你了 但我不说"
     )
     private val generalWhispers = listOf(
-        "\u6211\u5728","\u621B\u6211\u5E72\u561B","......","\u522B\u8001\u770B\u624B\u673A \u770B\u6211",
-        "\u55EF\uFF1F","\u6709\u4EC0\u4E48\u4E8B\u5417","\u6211\u8E72\u8FD9\u5462"
+        "我在","戳我干嘛","......","别老看手机 看我",
+        "嗯？","有什么事吗","我蹲这呢"
     )
-    // ========== NOTIFICATION ==========
+
+    // ========== 通知 ==========
     private fun buildNotification(text: String): Notification {
         val pendingIntent = if (!hasUsageAccess()) {
             PendingIntent.getActivity(
@@ -321,7 +517,7 @@ class OverlayService : Service() {
             )
         }
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("\uD83E\uDD80 Claude")
+            .setContentTitle("\uD83E\uDD80")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .setContentIntent(pendingIntent)
@@ -329,22 +525,27 @@ class OverlayService : Service() {
             .setSilent(true)
             .build()
     }
+
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Claude\u684C\u5BA0",
+                "桌宠",
                 NotificationManager.IMPORTANCE_LOW
             ).apply { setShowBadge(false) }
             getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(channel)
         }
     }
+
     private fun dpToPx(dp: Int): Int {
         return (dp * resources.displayMetrics.density).toInt()
     }
+
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        screenshotObserver?.stopWatching()
+        batteryReceiver?.let { unregisterReceiver(it) }
         overlayView?.let {
             windowManager?.removeView(it)
             it.destroy()
@@ -353,5 +554,3 @@ class OverlayService : Service() {
         super.onDestroy()
     }
 }
-
-
