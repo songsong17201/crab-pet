@@ -166,29 +166,31 @@ class OverlayService : Service() {
         val currentY = params?.y ?: 0
         val viewW = dpToPx(PET_SIZE_DP)
         val viewH = dpToPx(PET_HEIGHT_DP)
-        // Crab snaps TO the edge (stays visible), rotates to cling
+        val halfW = viewW / 2
+        val halfH = viewH / 2
+        // Crab snaps to edge showing only half body (peeking from edge)
         when {
             currentX < edgePx -> {
-                // Left edge: snap x=0, crab rotates to face left
-                params?.x = 0
+                // Left edge: half body hidden on left, peeking
+                params?.x = -halfW
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'left')")
             }
             currentX + viewW > screenW - edgePx -> {
-                // Right edge: snap to right side, crab rotates to face right
-                params?.x = screenW - viewW
+                // Right edge: half body hidden on right, peeking
+                params?.x = screenW - halfW
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'right')")
             }
             currentY < edgePx -> {
-                // Top edge: snap to top, crab flips upside down
-                params?.y = 0
+                // Top edge: half body hidden on top, peeking down
+                params?.y = -halfH
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'top')")
             }
             currentY + viewH > screenH - edgePx -> {
-                // Bottom edge: snap to bottom, normal standing
-                params?.y = screenH - viewH
+                // Bottom edge: half body hidden on bottom, peeking up
+                params?.y = screenH - halfH
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'bottom')")
             }
@@ -349,3 +351,4 @@ class OverlayService : Service() {
         super.onDestroy()
     }
 }
+
