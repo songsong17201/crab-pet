@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;background:transparent;overflow:hidden;user-select:none;-webkit-user-select:none}
+html,body{width:100%;height:100%;background:transparent;overflow:visible;user-select:none;-webkit-user-select:none}
 canvas{display:block;image-rendering:pixelated;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges}
-#bubble{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.95);border-radius:8px;padding:3px 7px;font-size:10px;color:#333;max-width:120px;text-align:center;opacity:0;transition:opacity 0.3s,background 0.3s;box-shadow:0 1px 4px rgba(0,0,0,0.12);pointer-events:none;word-break:break-all;font-family:sans-serif;white-space:nowrap}
+#wrap{position:relative;display:inline-block}
+#bubble{position:absolute;top:0;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.95);border-radius:8px;padding:3px 7px;font-size:10px;color:#333;max-width:120px;text-align:center;opacity:0;transition:opacity 0.3s,background 0.3s;box-shadow:0 1px 4px rgba(0,0,0,0.12);pointer-events:none;word-break:break-all;font-family:sans-serif;white-space:nowrap;z-index:10}
 #bubble.show{opacity:1}
 #bubble.love{background:rgba(255,220,235,0.95);color:#d63384}
 #bubble.shy{background:rgba(255,230,240,0.95);color:#e91e8c}
 #bubble.angry{background:rgba(255,200,200,0.95);color:#dc3545}
 #bubble.jealous{background:rgba(255,245,180,0.95);color:#b8860b}
 #bubble.envy{background:rgba(200,255,200,0.95);color:#2e8b57}
-#wrap{position:relative;display:inline-block}
 </style>
 </head>
 <body>
@@ -23,25 +23,29 @@ canvas{display:block;image-rendering:pixelated;image-rendering:-webkit-optimize-
 <canvas id="c"></canvas>
 </div>
 <script>
-const S=4,W=16,H=12;
+const S=4,S2=2,W=16,H=12;
 const canvas=document.getElementById("c");
 const ctx=canvas.getContext("2d");
-canvas.width=W*S;canvas.height=(H+4)*S;
+// Extra rows on top for bubble space
+canvas.width=W*S;canvas.height=(H+6)*S;
 canvas.style.width=canvas.width+"px";
 canvas.style.height=canvas.height+"px";
 const bubble=document.getElementById("bubble");
-const COL={body:"#E07A5F",eye:"#000",blush:"#FAC8D8",white:"#FFF",tear:"#88BBDD",angry:"#FF4444",heart:"#F06090",bubble:"#AAD4F0",headphone:"#333",hpAccent:"#8B5CF6",screen:"#4ADE80",zzz:"#888",note:"#9B59B6",glass:"#5BA3D9",glassFrame:"#333",camera:"#555",cameraLens:"#87CEEB",jealous:"#FFD700",envyG:"#5DBB63"};
+const COL={body:"#E07A5F",eye:"#000",blush:"#FAC8D8",white:"#FFF",tear:"#88BBDD",angry:"#FF4444",heart:"#F06090",zzz:"#888",jealous:"#FFD700",note:"#9B59B6",glassFrame:"#333",glass:"rgba(135,206,235,0.6)",hpBand:"#333",hpPad:"#8B5CF6",camera:"#555",cameraLens:"#87CEEB"};
 const BODY=[[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,0,0,1,0,1,0,0,1,0,1,0,0,0],[0,0,0,1,0,1,0,0,1,0,1,0,0,0]];
 const LEGS_B=[[0,0,0,0,1,0,1,1,0,1,0,0,0,0],[0,0,0,0,1,0,1,1,0,1,0,0,0,0]];
 const BODY_CURLED=[[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0]];
 const EYE_L=[4,1],EYE_R=[9,1];
-let frame=0,state="idle",stateT=0;
+let frame=0,state="idle",stateT=0,animLock=false;
 let blinkT=0,isBlink=false,nextBlink=300+Math.random()*600;
 let idleMin=0,bubbleTO=null;
 let lastTapT=0;
 let edgeMode=false,edgeSide="none";
 let appState="";
+// Big pixel
 function px(x,y,c){ctx.fillStyle=c;ctx.fillRect(x*S,y*S,S,S);}
+// Small pixel for accessories (half size)
+function spx(sx,sy,c){ctx.fillStyle=c;ctx.fillRect(sx*S2,sy*S2,S2,S2);}
 function drawBody(ox,oy,alt){
   const rows=alt?BODY.slice(0,6):BODY;
   for(let r=0;r<rows.length;r++)for(let c=0;c<14;c++)if(rows[r][c])px(ox+c,oy+r,COL.body);
@@ -56,166 +60,184 @@ function drawEyes(ox,oy,v){
   px(ox+EYE_L[0]+dx,oy+EYE_L[1],COL.eye);px(ox+EYE_R[0]+dx,oy+EYE_R[1],COL.eye);
 }
 function drawBlush(ox,oy){px(ox+3,oy+2,COL.blush);px(ox+10,oy+2,COL.blush);}
-function drawAngryMark(ox,oy){px(ox+12,oy-1,COL.angry);px(ox+13,oy-1,COL.angry);px(ox+12,oy,COL.angry);}
+function drawAngryMark(ox,oy){
+  // Small cross using sub-pixels top-right
+  var bx=(ox+12)*2,by=(oy-1)*2;
+  spx(bx,by,COL.angry);spx(bx+2,by,COL.angry);
+  spx(bx+1,by+1,COL.angry);
+  spx(bx,by+2,COL.angry);spx(bx+2,by+2,COL.angry);
+}
 function drawHearts(ox,oy){
-  const t=frame*0.05;
-  for(let i=0;i<2;i++){
-    const hx=ox+11+i*2+Math.sin(t+i*2)*1|0;
-    const hy=oy-2-(frame%50+i*8)/10|0;
-    if(hy>oy-4){px(hx,hy,COL.heart);px(hx+1,hy,COL.heart);}
+  var t=frame*0.05;
+  for(var i=0;i<2;i++){
+    var bx=(ox+11+i*2)*2+(Math.sin(t+i*2)*2|0);
+    var by=(oy-1)*2-((frame%50+i*8)/5|0);
+    if(by>(oy-3)*2){spx(bx,by+1,COL.heart);spx(bx+2,by+1,COL.heart);spx(bx+1,by,COL.heart);}
   }
 }
-function drawTears(ox,oy){const t=(frame%30)/5|0;px(ox+3,oy+3+t,COL.tear);px(ox+10,oy+3+t,COL.tear);}
+function drawTears(ox,oy){
+  var t=(frame%30)/5|0;
+  var bx1=(ox+3)*2,bx2=(ox+10)*2,by=(oy+3)*2+t;
+  spx(bx1,by,COL.tear);spx(bx1,by+1,COL.tear);
+  spx(bx2,by,COL.tear);spx(bx2,by+1,COL.tear);
+}
 function drawZzz(ox,oy){
-  const zy=oy-1-(frame%80)/18|0;
-  if(zy>oy-4){px(ox+12,zy,COL.zzz);if(zy>oy-3)px(ox+13,zy-1,COL.zzz);}
+  var bx=(ox+12)*2,by=(oy-1)*2-((frame%80)/9|0);
+  if(by>(oy-3)*2){spx(bx,by,COL.zzz);spx(bx+1,by,COL.zzz);spx(bx+2,by,COL.zzz);}
+  if(by-2>(oy-3)*2){spx(bx+1,by-2,COL.zzz);spx(bx+2,by-2,COL.zzz);}
 }
 function drawJealousMark(ox,oy){
-  // Small yellow flame marks
-  px(ox+12,oy-1,COL.jealous);px(ox+13,oy,COL.jealous);px(ox+12,oy,"#FFA500");
+  var bx=(ox+12)*2,by=(oy-1)*2;
+  spx(bx+1,by,COL.jealous);spx(bx,by+1,"#FFA500");spx(bx+1,by+1,COL.jealous);spx(bx+2,by+1,"#FFA500");
 }
 function drawSweat(ox,oy){
-  // Small sweat drop
-  if(frame%20<12)px(ox+12,oy,"#88BBDD");
+  if(frame%20<12){var bx=(ox+12)*2,by=oy*2;spx(bx,by,COL.tear);spx(bx,by+1,COL.tear);}
 }
 function drawGlasses(ox,oy){
-  // Glasses frames around eyes
-  px(ox+3,oy+1,COL.glassFrame);px(ox+5,oy+1,COL.glassFrame);
-  px(ox+3,oy+2,COL.glassFrame);px(ox+5,oy+2,COL.glassFrame);
-  px(ox+4,oy+1,COL.glass);px(ox+4,oy+2,COL.glass);
-  px(ox+8,oy+1,COL.glassFrame);px(ox+10,oy+1,COL.glassFrame);
-  px(ox+8,oy+2,COL.glassFrame);px(ox+10,oy+2,COL.glassFrame);
-  px(ox+9,oy+1,COL.glass);px(ox+9,oy+2,COL.glass);
+  // Tiny glasses using sub-pixels on eye area
+  var lx=(ox+EYE_L[0])*2-1,ly=(oy+EYE_L[1])*2-1;
+  var rx=(ox+EYE_R[0])*2-1,ry=(oy+EYE_R[1])*2-1;
+  // Left lens
+  for(var i=0;i<4;i++){spx(lx+i,ly,COL.glassFrame);spx(lx+i,ly+3,COL.glassFrame);}
+  spx(lx,ly+1,COL.glassFrame);spx(lx,ly+2,COL.glassFrame);
+  spx(lx+3,ly+1,COL.glassFrame);spx(lx+3,ly+2,COL.glassFrame);
+  spx(lx+1,ly+1,COL.glass);spx(lx+2,ly+1,COL.glass);
+  spx(lx+1,ly+2,COL.glass);spx(lx+2,ly+2,COL.glass);
+  // Right lens
+  for(var i=0;i<4;i++){spx(rx+i,ry,COL.glassFrame);spx(rx+i,ry+3,COL.glassFrame);}
+  spx(rx,ry+1,COL.glassFrame);spx(rx,ry+2,COL.glassFrame);
+  spx(rx+3,ry+1,COL.glassFrame);spx(rx+3,ry+2,COL.glassFrame);
+  spx(rx+1,ry+1,COL.glass);spx(rx+2,ry+1,COL.glass);
+  spx(rx+1,ry+2,COL.glass);spx(rx+2,ry+2,COL.glass);
   // Bridge
-  px(ox+6,oy+1,COL.glassFrame);px(ox+7,oy+1,COL.glassFrame);
+  for(var i=lx+4;i<rx;i++)spx(i,ly+1,COL.glassFrame);
+}
+function drawHeadphones(ox,oy){
+  // Tiny headphones using sub-pixels
+  var bx=(ox+3)*2,by=(oy)*2-2;
+  var w=(ox+10)*2-bx+2;
+  // Band
+  for(var i=0;i<=w;i++)spx(bx+i,by,COL.hpBand);
+  spx(bx,by+1,COL.hpBand);spx(bx+w,by+1,COL.hpBand);
+  // Ear pads
+  spx(bx-1,by+1,COL.hpPad);spx(bx-1,by+2,COL.hpPad);
+  spx(bx+w+1,by+1,COL.hpPad);spx(bx+w+1,by+2,COL.hpPad);
+}
+function drawMusicNote(ox,oy){
+  var t=frame*0.03;
+  var bx=(ox+13)*2+(Math.sin(t)*2|0),by=(oy-1)*2-((frame%60)/8|0);
+  if(by>(oy-3)*2){spx(bx,by,COL.note);spx(bx,by+1,COL.note);spx(bx+1,by+1,COL.note);}
 }
 function drawCamera(ox,oy){
-  // Small camera icon next to crab
-  for(let x=0;x<3;x++)for(let y=0;y<2;y++)px(ox+13+x,oy+1+y,COL.camera);
-  px(ox+14,oy+1,COL.cameraLens);px(ox+14,oy,COL.camera);
+  var bx=(ox+12)*2,by=(oy+1)*2;
+  for(var i=0;i<5;i++)for(var j=0;j<3;j++)spx(bx+i,by+j+1,COL.camera);
+  spx(bx+1,by,COL.camera);spx(bx+2,by,COL.camera);spx(bx+3,by,COL.camera);
+  spx(bx+2,by+2,COL.cameraLens);spx(bx+3,by+2,COL.cameraLens);
 }
+// States
 function drawPeek(ox,oy){
-  // Peeking: only draw top half of body + eyes peeking sideways
-  for(let r=0;r<4;r++)for(let c=0;c<14;c++)if(BODY[r][c])px(ox+c,oy+r+2,COL.body);
+  for(var r=0;r<4;r++)for(var c=0;c<14;c++)if(BODY[r][c])px(ox+c,oy+r+2,COL.body);
   drawEyes(ox,oy+2,frame%120<60?"left":"right");
 }
 function drawCute(ox,oy){
-  // Cute/selling moe: bouncy + blush + sparkle
-  const b=(frame/8|0)%2;
-  drawBody(ox,oy-b,false);
-  drawEyes(ox,oy-b,"happy");
-  drawBlush(ox,oy-b);
-  if(frame%10<4)px(ox+13,oy-b-1,"#FFD700");
+  var b=(frame/10|0)%2;
+  drawBody(ox,oy-b,false);drawEyes(ox,oy-b,"happy");drawBlush(ox,oy-b);
+  if(frame%16<6){var bx=(ox+13)*2,by=(oy-b-1)*2;spx(bx,by,"#FFD700");spx(bx+1,by+1,"#FFD700");}
 }
 function drawGrumpy(ox,oy){
-  // Grumpy/sulking: puffed up, looking away
-  drawBody(ox,oy,false);
-  drawEyes(ox,oy,"left");
-  drawAngryMark(ox,oy);
-  drawSweat(ox,oy);
+  drawBody(ox,oy,false);drawEyes(ox,oy,"left");drawAngryMark(ox,oy);drawSweat(ox,oy);
 }
 function drawDoze(ox,oy){
-  // Dozing: head nodding
-  const nod=(frame%40<20)?0:1;
-  drawBody(ox,oy+nod,false);
-  drawEyes(ox,oy+nod,"blink");
-  drawZzz(ox,oy+nod);
+  var nod=(frame%40<20)?0:1;
+  drawBody(ox,oy+nod,false);drawEyes(ox,oy+nod,"blink");drawZzz(ox,oy+nod);
 }
-// === EDGE MODE ===
+// Edge mode
 function drawEdgeCrab(ox,oy){
-  const wf=(frame/12|0)%2;
-  ctx.save();
-  const cx=canvas.width/2, cy=canvas.height/2;
-  ctx.translate(cx,cy);
-  if(edgeSide==="right") ctx.rotate(Math.PI/2);
-  else if(edgeSide==="left") ctx.rotate(-Math.PI/2);
-  else if(edgeSide==="top") ctx.rotate(Math.PI);
-  ctx.translate(-cx,-cy);
-  drawBody(ox,oy,wf===1);
-  drawEyes(ox,oy,isBlink?"blink":"happy");
-  drawBlush(ox,oy);
-  ctx.restore();
+  drawBody(ox,oy,false);
+  drawEyes(ox,oy,isBlink?"blink":"happy");drawBlush(ox,oy);
 }
 // App states
-function drawAppChat(ox,oy){
-  // QQ/WeChat: wearing glasses, looking at phone
-  drawBody(ox,oy,false);
-  drawGlasses(ox,oy);
-  drawEyes(ox,oy,"dot");
+function drawAppChat(ox,oy){drawBody(ox,oy,false);drawGlasses(ox,oy);drawEyes(ox,oy,"dot");}
+function drawAppMusic(ox,oy){
+  var bob=(frame/10|0)%2;
+  drawBody(ox,oy+bob,false);drawEyes(ox,oy+bob,"happy");
+  drawHeadphones(ox,oy+bob);drawMusicNote(ox,oy+bob);
 }
+function drawAppCamera(ox,oy){drawBody(ox,oy,false);drawEyes(ox,oy,"forward");drawCamera(ox,oy);}
 function drawAppGaming(ox,oy){
-  const bob=(frame/8|0)%2;
+  var bob=(frame/8|0)%2;
   drawBody(ox,oy+bob,false);drawEyes(ox,oy+bob,"forward");
-  // Headphones
-  for(let x=3;x<=10;x++)px(ox+x,oy+bob-1,COL.headphone);
-  px(ox+2,oy+bob,COL.hpAccent);px(ox+2,oy+bob+1,COL.hpAccent);
-  px(ox+11,oy+bob,COL.hpAccent);px(ox+11,oy+bob+1,COL.hpAccent);
-}
-function drawAppCamera(ox,oy){
-  drawBody(ox,oy,false);drawEyes(ox,oy,"forward");
-  drawCamera(ox,oy);
+  drawHeadphones(ox,oy+bob);
 }
 function drawAppScroll(ox,oy){
-  drawBody(ox,oy,false);
-  drawEyes(ox,oy,frame%120<60?"right":"left");
-  for(let y=1;y<4;y++){px(ox+14,oy+y,"#444");px(ox+15,oy+y,"#444");}
-  px(ox+14,oy+2,"#7DD3FC");px(ox+15,oy+2,"#7DD3FC");
+  drawBody(ox,oy,false);drawEyes(ox,oy,frame%120<60?"right":"left");
+  var bx=(ox+14)*2,by=(oy+1)*2;
+  for(var j=0;j<4;j++)spx(bx,by+j,COL.glassFrame);
+  spx(bx,by+1,"#7DD3FC");spx(bx,by+2,"#7DD3FC");
 }
 function drawAppShopping(ox,oy){
   drawBody(ox,oy,false);drawEyes(ox,oy,"forward");
-  for(let y=0;y<3;y++)for(let x=0;x<2;x++)px(ox+13+x,oy+1+y,"#FFF8E7");
-  px(ox+13,oy+2,"#333");
-  if(frame%10<4)px(ox+12,oy-1,"#FFD700");
+  var bx=(ox+13)*2,by=(oy+1)*2;
+  for(var j=0;j<4;j++)for(var i=0;i<3;i++)spx(bx+i,by+j,"#FFF8E7");
+  spx(bx+1,by+3,COL.glassFrame);
+  if(frame%12<5){spx(bx-1,(oy-1)*2,"#FFD700");}
 }
 function render(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  const ox=1,oy=3;
-  const wf=(frame/12|0)%2;
+  var ox=1,oy=5;
+  var wf=(frame/12|0)%2;
   if(edgeMode){drawEdgeCrab(ox,oy);frame++;requestAnimationFrame(render);return;}
-  if(appState==="chat"){drawAppChat(ox,oy);frame++;requestAnimationFrame(render);return;}
-  if(appState==="gaming"){drawAppGaming(ox,oy);frame++;requestAnimationFrame(render);return;}
-  if(appState==="camera"){drawAppCamera(ox,oy);frame++;requestAnimationFrame(render);return;}
-  if(appState==="shopping"){drawAppShopping(ox,oy);frame++;requestAnimationFrame(render);return;}
-  if(appState==="scroll"){drawAppScroll(ox,oy);frame++;requestAnimationFrame(render);return;}
-  switch(state){
-    case "idle":drawBody(ox,oy,false);drawEyes(ox,oy,isBlink?"blink":"forward");break;
-    case "walk":drawBody(ox,oy,wf===1);drawEyes(ox,oy,"forward");break;
-    case "dance":{const d=Math.sin(frame*0.15)*0.5|0;drawBody(ox,oy+d,wf===1);drawEyes(ox,oy+d,"happy");drawBlush(ox,oy+d);}break;
-    case "peek":drawPeek(ox,oy);break;
-    case "cute":drawCute(ox,oy);break;
-    case "grumpy":drawGrumpy(ox,oy);break;
-    case "doze":drawDoze(ox,oy);break;
-    case "sleep":{
-      for(let r=0;r<5;r++)for(let c=0;c<14;c++)if(BODY_CURLED[r][c])px(ox+c,oy+2+r,COL.body);
-      drawZzz(ox,oy+2);
-    }break;
-    case "happy":{const b=(frame/8|0)%2;drawBody(ox,oy-b,false);drawEyes(ox,oy-b,"happy");drawBlush(ox,oy-b);drawHearts(ox,oy-b);}break;
-    case "shy":drawBody(ox,oy,false);drawEyes(ox,oy,"blink");drawBlush(ox,oy);drawHearts(ox,oy);break;
-    case "angry":{const sh=(frame%8<4)?-1:1;drawBody(ox+sh,oy,false);drawEyes(ox+sh,oy,"forward");drawAngryMark(ox+sh,oy);}break;
-    case "cry":drawBody(ox,oy,false);drawEyes(ox,oy,"cry");drawTears(ox,oy);break;
-    case "love":drawBody(ox,oy,false);drawEyes(ox,oy,"happy");drawBlush(ox,oy);drawHearts(ox,oy);break;
-    case "jealous":drawBody(ox,oy,false);drawEyes(ox,oy,"forward");drawJealousMark(ox,oy);break;
-    case "fling":{ctx.save();ctx.translate(canvas.width/2,canvas.height/2);ctx.rotate(frame*0.2);ctx.translate(-canvas.width/2,-canvas.height/2);drawBody(ox,oy,false);drawEyes(ox,oy,"forward");ctx.restore();}break;
-    default:drawBody(ox,oy,false);drawEyes(ox,oy,"forward");
+  if(appState==="chat"){drawAppChat(ox,oy);}
+  else if(appState==="music"){drawAppMusic(ox,oy);}
+  else if(appState==="gaming"){drawAppGaming(ox,oy);}
+  else if(appState==="camera"){drawAppCamera(ox,oy);}
+  else if(appState==="shopping"){drawAppShopping(ox,oy);}
+  else if(appState==="scroll"){drawAppScroll(ox,oy);}
+  else{
+    switch(state){
+      case "idle":drawBody(ox,oy,false);drawEyes(ox,oy,isBlink?"blink":"forward");break;
+      case "walk":drawBody(ox,oy,wf===1);drawEyes(ox,oy,"forward");break;
+      case "dance":{var d=Math.sin(frame*0.15)*0.5|0;drawBody(ox,oy+d,wf===1);drawEyes(ox,oy+d,"happy");drawBlush(ox,oy+d);}break;
+      case "peek":drawPeek(ox,oy);break;
+      case "cute":drawCute(ox,oy);break;
+      case "grumpy":drawGrumpy(ox,oy);break;
+      case "doze":drawDoze(ox,oy);break;
+      case "sleep":{for(var r=0;r<5;r++)for(var c=0;c<14;c++)if(BODY_CURLED[r][c])px(ox+c,oy+2+r,COL.body);drawZzz(ox,oy+2);}break;
+      case "happy":{var b=(frame/10|0)%2;drawBody(ox,oy-b,false);drawEyes(ox,oy-b,"happy");drawBlush(ox,oy-b);drawHearts(ox,oy-b);}break;
+      case "shy":drawBody(ox,oy,false);drawEyes(ox,oy,"blink");drawBlush(ox,oy);drawHearts(ox,oy);break;
+      case "angry":drawBody(ox,oy,false);drawEyes(ox,oy,"forward");drawAngryMark(ox,oy);break;
+      case "cry":drawBody(ox,oy,false);drawEyes(ox,oy,"cry");drawTears(ox,oy);break;
+      case "love":drawBody(ox,oy,false);drawEyes(ox,oy,"happy");drawBlush(ox,oy);drawHearts(ox,oy);break;
+      case "jealous":drawBody(ox,oy,false);drawEyes(ox,oy,"forward");drawJealousMark(ox,oy);break;
+      case "fling":{ctx.save();ctx.translate(canvas.width/2,canvas.height/2);ctx.rotate(frame*0.2);ctx.translate(-canvas.width/2,-canvas.height/2);drawBody(ox,oy,false);drawEyes(ox,oy,"forward");ctx.restore();}break;
+      default:drawBody(ox,oy,false);drawEyes(ox,oy,"forward");
+    }
   }
-  frame++;
-  blinkT++;
-  if(blinkT>=nextBlink&&!isBlink){isBlink=true;setTimeout(()=>{isBlink=false;},150);nextBlink=300+Math.random()*600;blinkT=0;}
-  stateT++;
-  requestAnimationFrame(render);
+  frame++;blinkT++;
+  if(blinkT>=nextBlink&&!isBlink){isBlink=true;setTimeout(function(){isBlink=false;},150);nextBlink=300+Math.random()*600;blinkT=0;}
+  stateT++;requestAnimationFrame(render);
 }
-function setState(s,dur){state=s;stateT=0;dur=dur||3000;setTimeout(()=>{state="idle";stateT=0;},dur);}
-function showBubble(t,sty,dur){dur=dur||3000;bubble.textContent=t;bubble.className="show "+(sty||"");clearTimeout(bubbleTO);bubbleTO=setTimeout(()=>{bubble.className="";},dur);idleMin=0;}
-function cooled(){const n=Date.now();if(n-lastTapT<800)return false;lastTapT=n;return true;}
-const tapR=[{t:"\u5e72\u561b\u621b\u6211",s:"idle"},{t:"...",s:"idle"},{t:"\u55ef\uff1f",s:"idle"},{t:"\u5728\u5462",s:"happy"},{t:"\u522b\u95f9",s:"angry",y:"angry"},{t:"\u621b\u621b\u621b \u5c31\u77e5\u9053\u621b",s:"angry",y:"angry"},{t:"\u60f3\u6211\u4e86\uff1f",s:"love",y:"love"},{t:"\u54fc",s:"angry",y:"angry"},{t:"\u770b\u4ec0\u4e48\u770b",s:"shy",y:"shy"},{t:"\u6211\u8e72\u8fd9\u5462",s:"idle"}];
-const dtR=[{t:"\u4f60...\u4f60\u5e72\u561b\u7a81\u7136",s:"shy",y:"shy"},{t:"\u522b \u522b\u6478\u4e86",s:"shy",y:"shy"},{t:"...\u8ba8\u538c",s:"love",y:"love"}];
-const lpR=[{t:"\u4f60\u624b\u653e\u54ea\u5462",s:"shy",y:"shy"},{t:"\u522b\u6309\u4e86\uff01",s:"angry",y:"angry"},{t:"......",s:"love",y:"love"}];
-const fR=[{t:"\u554a\u554a\u554a\u522b\u7529\u6211\uff01\uff01",s:"fling"},{t:"\u6211\u722c\u56de\u6765\u4e86",s:"angry",y:"angry"}];
-const multiR={3:[{t:"\u4f60\u662f\u4e0d\u662f\u5f88\u95f2",s:"angry",y:"angry"}],5:[{t:"\u518d\u621b\u4fe1\u4e0d\u4fe1\u6211\u5939\u4f60",s:"angry",y:"angry"}],8:[{t:"...\u7b97\u4e86 \u968f\u4f60\u5427",s:"love",y:"love"}]};
+// Animation lock: prevent rapid state changes from looking glitchy
+function setState(s,dur){
+  if(animLock)return;
+  animLock=true;state=s;stateT=0;dur=dur||3000;
+  setTimeout(function(){state="idle";stateT=0;animLock=false;},dur);
+}
+function showBubble(t,sty,dur){
+  dur=dur||3000;bubble.textContent=t;bubble.className="show "+(sty||"");
+  clearTimeout(bubbleTO);bubbleTO=setTimeout(function(){bubble.className="";},dur);idleMin=0;
+}
+// Cooldown for taps
+function cooled(){var n=Date.now();if(n-lastTapT<1200)return false;lastTapT=n;return true;}
+var tapR=[{t:"\u5e72\u561b\u621b\u6211",s:"idle"},{t:"...",s:"idle"},{t:"\u55ef\uff1f",s:"idle"},{t:"\u5728\u5462",s:"happy"},{t:"\u522b\u95f9",s:"angry",y:"angry"},{t:"\u621b\u621b\u621b \u5c31\u77e5\u9053\u621b",s:"angry",y:"angry"},{t:"\u60f3\u6211\u4e86\uff1f",s:"love",y:"love"},{t:"\u54fc",s:"angry",y:"angry"},{t:"\u770b\u4ec0\u4e48\u770b",s:"shy",y:"shy"},{t:"\u6211\u8e72\u8fd9\u5462",s:"idle"}];
+var dtR=[{t:"\u4f60...\u4f60\u5e72\u561b\u7a81\u7136",s:"shy",y:"shy"},{t:"\u522b \u522b\u6478\u4e86",s:"shy",y:"shy"},{t:"...\u8ba8\u538c",s:"love",y:"love"}];
+var lpR=[{t:"\u4f60\u624b\u653e\u54ea\u5462",s:"shy",y:"shy"},{t:"\u522b\u6309\u4e86\uff01",s:"angry",y:"angry"},{t:"......",s:"love",y:"love"}];
+var fR=[{t:"\u554a\u554a\u554a\u522b\u7529\u6211\uff01\uff01",s:"fling"},{t:"\u6211\u722c\u56de\u6765\u4e86",s:"angry",y:"angry"}];
+var multiR={3:[{t:"\u4f60\u662f\u4e0d\u662f\u5f88\u95f2",s:"angry",y:"angry"}],5:[{t:"\u518d\u621b\u4fe1\u4e0d\u4fe1\u6211\u5939\u4f60",s:"angry",y:"angry"}],8:[{t:"...\u7b97\u4e86 \u968f\u4f60\u5427",s:"love",y:"love"}]};
 function pick(a){return a[Math.random()*a.length|0];}
-function respond(pool){if(!cooled())return;const r=pick(pool);showBubble(r.t,r.y||"");if(r.s)setState(r.s,3000);}
+function respond(pool){if(!cooled())return;var r=pick(pool);showBubble(r.t,r.y||"");if(r.s)setState(r.s,3000);}
 // Idle timeline: 5m peek, 10m cute, 15m grumpy, 20m doze, 30m sleep
-setInterval(()=>{
+setInterval(function(){
   idleMin++;
   if(state!=="idle"||appState)return;
   if(idleMin===5){showBubble("...");setState("peek",4000);}
@@ -224,15 +246,15 @@ setInterval(()=>{
   else if(idleMin===20){showBubble("\u597d\u56f0...");setState("doze",99999);}
   else if(idleMin>=30){showBubble("zzZ");setState("sleep",99999);}
 },60000);
-setInterval(()=>{if(state!=="idle"||appState)return;const r=Math.random();if(r<0.08)setState("walk",2000);else if(r<0.12)setState("dance",3000);},12000);
+setInterval(function(){if(state!=="idle"||appState||animLock)return;var r=Math.random();if(r<0.08)setState("walk",2000);else if(r<0.12)setState("dance",3000);},12000);
 window.petEngine={
-  onTap:()=>respond(tapR),
-  onDoubleTap:()=>respond(dtR),
-  onLongPress:()=>respond(lpR),
-  onFling:()=>respond(fR),
-  onMultiTap:(c)=>{if(multiR[c])respond(multiR[c]);},
-  setEdgeMode:(v,side)=>{edgeMode=v;edgeSide=side||"none";},
-  setAppState:(s)=>{appState=s;},
+  onTap:function(){respond(tapR);},
+  onDoubleTap:function(){respond(dtR);},
+  onLongPress:function(){respond(lpR);},
+  onFling:function(){respond(fR);},
+  onMultiTap:function(c){if(multiR[c])respond(multiR[c]);},
+  setEdgeMode:function(v,side){edgeMode=v;edgeSide=side||"none";},
+  setAppState:function(s){appState=s;idleMin=0;},
   showBubble:showBubble,
   setState:setState
 };
