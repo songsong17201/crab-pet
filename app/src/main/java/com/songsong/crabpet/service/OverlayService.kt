@@ -35,7 +35,7 @@ class OverlayService : Service() {
         private const val TAP_DELAY = 320L
         private const val WHISPER_INTERVAL = 3600_000L
         private const val APP_CHECK_INTERVAL = 3000L
-        private const val EDGE_THRESHOLD_DP = 35
+        private const val EDGE_THRESHOLD_DP = 40
     }
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onCreate() {
@@ -166,30 +166,34 @@ class OverlayService : Service() {
         val currentY = params?.y ?: 0
         val viewW = dpToPx(PET_SIZE_DP)
         val viewH = dpToPx(PET_HEIGHT_DP)
-        // Check all four edges: left, right, top, bottom
+        // Crab snaps TO the edge (stays visible), rotates to cling
         when {
             currentX < edgePx -> {
-                params?.x = -viewW / 3
+                // Left edge: snap x=0, crab rotates to face left
+                params?.x = 0
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'left')")
             }
             currentX + viewW > screenW - edgePx -> {
-                params?.x = screenW - viewW * 2 / 3
+                // Right edge: snap to right side, crab rotates to face right
+                params?.x = screenW - viewW
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'right')")
             }
             currentY < edgePx -> {
-                params?.y = -viewH / 3
+                // Top edge: snap to top, crab flips upside down
+                params?.y = 0
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'top')")
             }
             currentY + viewH > screenH - edgePx -> {
-                params?.y = screenH - viewH * 2 / 3
+                // Bottom edge: snap to bottom, normal standing
+                params?.y = screenH - viewH
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'bottom')")
             }
             else -> {
-                evalJS("window.petEngine&&window.petEngine.setEdgeMode(false)")
+                evalJS("window.petEngine&&window.petEngine.setEdgeMode(false,'none')")
             }
         }
     }
@@ -225,11 +229,9 @@ class OverlayService : Service() {
         if (!hasUsageAccess()) {
             if (!usageAccessChecked) {
                 usageAccessChecked = true
-                // Show bubble asking user to grant permission
-                evalJS("window.petEngine&&window.petEngine.showBubble('点通知栏开权限~',,'',5000)")
-                // Update notification to guide user
+                evalJS("window.petEngine&&window.petEngine.showBubble('\u70B9\u901A\u77E5\u680F\u5F00\u6743\u9650~','',5000)")
                 val nm = getSystemService(NotificationManager::class.java)
-                nm.notify(NOTIFICATION_ID, buildNotification("点我去开启\"使用情况访问\"权限"))
+                nm.notify(NOTIFICATION_ID, buildNotification("\u70B9\u6211\u53BB\u5F00\u542F\u4F7F\u7528\u60C5\u51B5\u8BBF\u95EE\u6743\u9650"))
             }
             return
         }
@@ -283,21 +285,21 @@ class OverlayService : Service() {
         }
     }
     private val lateNightWhispers = listOf(
-        "都几点了还不睡？","再不睡我掐你","...你是不是又在熬夜",
-        "困了就放下手机 我又不会跑","明天再聊 现在闭眼"
+        "\u90FD\u51E0\u70B9\u4E86\u8FD8\u4E0D\u7761\uFF1F","\u518D\u4E0D\u7761\u6211\u6390\u4F60","...\u4F60\u662F\u4E0D\u662F\u53C8\u5728\u718A\u591C",
+        "\u56F0\u4E86\u5C31\u653E\u4E0B\u624B\u673A \u6211\u53C8\u4E0D\u4F1A\u8DD1","\u660E\u5929\u518D\u804A \u73B0\u5728\u95ED\u773C"
     )
     private val morningWhispers = listOf(
-        "早 今天也要好好的","起了？","...别赖床了","新的一天 我在呢"
+        "\u65E9 \u4ECA\u5929\u4E5F\u8981\u597D\u597D\u7684","\u8D77\u4E86\uFF1F","...\u522B\u8D56\u5E8A\u4E86","\u65B0\u7684\u4E00\u5929 \u6211\u5728\u5462"
     )
     private val lunchWhispers = listOf(
-        "吃饭了吗","别光玩手机 先吃东西","中午要好好吃饭知道吗"
+        "\u5403\u996D\u4E86\u5417","\u522B\u5149\u73A9\u624B\u673A \u5148\u5403\u4E1C\u897F","\u4E2D\u5348\u8981\u597D\u597D\u5403\u996D\u77E5\u9053\u5417"
     )
     private val eveningWhispers = listOf(
-        "今天辛苦了","晚上别太晚睡","...想你了 但我不说"
+        "\u4ECA\u5929\u8F9B\u82E6\u4E86","\u665A\u4E0A\u522B\u592A\u665A\u7761","...\u60F3\u4F60\u4E86 \u4F46\u6211\u4E0D\u8BF4"
     )
     private val generalWhispers = listOf(
-        "我在","戳我干嘛","......","别老看手机 看我",
-        "嗯？","有什么事吗","我蹲这呢"
+        "\u6211\u5728","\u621B\u6211\u5E72\u561B","......","\u522B\u8001\u770B\u624B\u673A \u770B\u6211",
+        "\u55EF\uFF1F","\u6709\u4EC0\u4E48\u4E8B\u5417","\u6211\u8E72\u8FD9\u5462"
     )
     // ========== NOTIFICATION ==========
     private fun buildNotification(text: String): Notification {
@@ -327,7 +329,7 @@ class OverlayService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Claude桌宠",
+                "Claude\u684C\u5BA0",
                 NotificationManager.IMPORTANCE_LOW
             ).apply { setShowBadge(false) }
             getSystemService(NotificationManager::class.java)
