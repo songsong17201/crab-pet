@@ -1,0 +1,98 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Pixel Crab Icon -->
+    <!-- Body (orange oval) -->
+    <path
+        android:fillColor="#FF6B35"
+        android:pathData="M38,48 h32 v16 h-32 z" />
+    <path
+        android:fillColor="#FF6B35"
+        android:pathData="M34,52 h4 v8 h-4 z" />
+    <path
+        android:fillColor="#FF6B35"
+        android:pathData="M70,52 h4 v8 h-4 z" />
+    <path
+        android:fillColor="#FF8C5A"
+        android:pathData="M42,48 h24 v4 h-24 z" />
+
+    <!-- Eyes (black dots with white highlight) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44,42 h6 v6 h-6 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M58,42 h6 v6 h-6 z" />
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M46,44 h3 v3 h-3 z" />
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M60,44 h3 v3 h-3 z" />
+
+    <!-- Eye stalks -->
+    <path
+        android:fillColor="#FF6B35"
+        android:pathData="M45,46 h4 v2 h-4 z" />
+    <path
+        android:fillColor="#FF6B35"
+        android:pathData="M59,46 h4 v2 h-4 z" />
+
+    <!-- Claws (left) -->
+    <path
+        android:fillColor="#FF4500"
+        android:pathData="M26,46 h8 v4 h-8 z" />
+    <path
+        android:fillColor="#FF4500"
+        android:pathData="M24,42 h4 v8 h-4 z" />
+    <path
+        android:fillColor="#FF4500"
+        android:pathData="M30,42 h4 v4 h-4 z" />
+    <!-- Arm connecting to body -->
+    <path
+        android:fillColor="#FF6B35"
+        android:pathData="M34,52 h4 v4 h-4 z" />
+
+    <!-- Claws (right) -->
+    <path
+        android:fillColor="#FF4500"
+        android:pathData="M74,46 h8 v4 h-8 z" />
+    <path
+        android:fillColor="#FF4500"
+        android:pathData="M80,42 h4 v8 h-4 z" />
+    <path
+        android:fillColor="#FF4500"
+        android:pathData="M74,42 h4 v4 h-4 z" />
+    <!-- Arm connecting to body -->
+    <path
+        android:fillColor="#FF6B35"
+        android:pathData="M70,52 h4 v4 h-4 z" />
+
+    <!-- Legs (3 pairs) -->
+    <path
+        android:fillColor="#E05A2B"
+        android:pathData="M40,64 h4 v6 h-4 z" />
+    <path
+        android:fillColor="#E05A2B"
+        android:pathData="M48,64 h4 v8 h-4 z" />
+    <path
+        android:fillColor="#E05A2B"
+        android:pathData="M56,64 h4 v8 h-4 z" />
+    <path
+        android:fillColor="#E05A2B"
+        android:pathData="M64,64 h4 v6 h-4 z" />
+
+    <!-- Mouth (smile) -->
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M50,58 h8 v2 h-8 z" />
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M48,56 h2 v2 h-2 z" />
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M58,56 h2 v2 h-2 z" />
+</vector>
