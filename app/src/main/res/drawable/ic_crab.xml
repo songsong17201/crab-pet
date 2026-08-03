@@ -1,0 +1,42 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Background circle -->
+    <path
+        android:fillColor="#FF6B35"
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0" />
+    <!-- Crab body -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,62 C38,62 30,54 30,48 C30,38 40,32 54,32 C68,32 78,38 78,48 C78,54 70,62 54,62Z" />
+    <!-- Eyes -->
+    <circle android:fillColor="#333333" android:cx="46" android:cy="45" android:r="4" />
+    <circle android:fillColor="#333333" android:cx="62" android:cy="45" android:r="4" />
+    <!-- Claws -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,48 Q22,40 26,34 Q30,30 34,36 Q35,42 30,48" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M80,48 Q86,40 82,34 Q78,30 74,36 Q73,42 78,48" />
+    <!-- Legs -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M38,60 Q32,68 28,74" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M70,60 Q76,68 80,74" />
+    <!-- Mouth -->
+    <path
+        android:strokeColor="#333333"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"
+        android:pathData="M48,55 Q54,59 60,55" />
+</vector>
