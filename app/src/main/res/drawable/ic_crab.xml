@@ -11,22 +11,29 @@
     <path
         android:fillColor="#FFFFFF"
         android:pathData="M54,62 C38,62 30,54 30,48 C30,38 40,32 54,32 C68,32 78,38 78,48 C78,54 70,62 54,62Z" />
-    <!-- Eyes -->
-    <circle android:fillColor="#333333" android:cx="46" android:cy="45" android:r="4" />
-    <circle android:fillColor="#333333" android:cx="62" android:cy="45" android:r="4" />
-    <!-- Claws -->
+    <!-- Left eye -->
+    <path
+        android:fillColor="#333333"
+        android:pathData="M46,45m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0" />
+    <!-- Right eye -->
+    <path
+        android:fillColor="#333333"
+        android:pathData="M62,45m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0" />
+    <!-- Left claw -->
     <path
         android:fillColor="#FFFFFF"
         android:pathData="M28,48 Q22,40 26,34 Q30,30 34,36 Q35,42 30,48" />
+    <!-- Right claw -->
     <path
         android:fillColor="#FFFFFF"
         android:pathData="M80,48 Q86,40 82,34 Q78,30 74,36 Q73,42 78,48" />
-    <!-- Legs -->
+    <!-- Left legs -->
     <path
         android:strokeColor="#FFFFFF"
         android:strokeWidth="2"
         android:fillColor="#00000000"
         android:pathData="M38,60 Q32,68 28,74" />
+    <!-- Right legs -->
     <path
         android:strokeColor="#FFFFFF"
         android:strokeWidth="2"
