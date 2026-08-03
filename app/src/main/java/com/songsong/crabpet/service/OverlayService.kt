@@ -310,16 +310,7 @@ class OverlayService : Service() {
     }
 
     private fun onScreenshot() {
-        val reactions = listOf(
-            "被拍到了！" to "shy",
-            "等等！我还没摆好！" to "shy",
-            "哼 拍我干嘛" to "angry",
-            "要把我拍好看一点哦" to "love",
-            "茄子~" to "love"
-        )
-        val r = reactions.random()
-        evalJS("window.petEngine&&window.petEngine.showBubble('${r.first}','${r.second}')")
-        evalJS("window.petEngine&&window.petEngine.setState('${r.second}',3000)")
+        evalJS("window.petEngine&&window.petEngine.onScreenshot()")
     }
 
     // ========== 充电/断电检测 ==========
@@ -554,3 +545,4 @@ class OverlayService : Service() {
         super.onDestroy()
     }
 }
+
