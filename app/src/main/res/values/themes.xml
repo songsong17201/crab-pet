@@ -4,4 +4,10 @@
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
     </style>
+    <style name="Theme.CrabPet.Main" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="android:windowBackground">#FFF0E6</item>
+        <item name="android:statusBarColor">#FFF0E6</item>
+        <item name="android:navigationBarColor">#FFF0E6</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
 </resources>
