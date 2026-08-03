@@ -9,6 +9,9 @@ import android.os.Looper
 import android.os.BatteryManager
 import android.os.FileObserver
 import android.os.Environment
+import android.database.ContentObserver
+import android.provider.MediaStore
+import android.net.Uri
 import android.view.*
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -262,35 +265,61 @@ class OverlayService : Service() {
 
     // ========== 截图检测 ==========
     private var screenshotObserver: FileObserver? = null
+    private var screenshotContentObserver: ContentObserver? = null
     private var lastScreenshotTime = 0L
 
     private fun startScreenshotObserver() {
-        val screenshotDir = File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
-            "Screenshots"
+        // 方案1：FileObserver 监听截图目录
+        val dirs = listOf(
+            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "Screenshots"),
+            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "screenshot"),
+            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "Screenshots"),
+            File(Environment.getExternalStorageDirectory(), "截屏录屏/Screenshots")
         )
-        if (!screenshotDir.exists()) {
-            // 华为/鸿蒙截图目录
-            val huaweiDir = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
-                "screenshot"
-            )
-            if (huaweiDir.exists()) {
-                startObserverForDir(huaweiDir.absolutePath)
-                return
+        for (dir in dirs) {
+            if (dir.exists()) {
+                startObserverForDir(dir.absolutePath)
+                break
             }
-            // 再试 DCIM/Screenshots
-            val dcimDir = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM),
-                "Screenshots"
-            )
-            if (dcimDir.exists()) {
-                startObserverForDir(dcimDir.absolutePath)
-                return
-            }
-        } else {
-            startObserverForDir(screenshotDir.absolutePath)
         }
+        // 方案2：ContentObserver 监听 MediaStore（兼容鸿蒙）
+        startScreenshotContentObserver()
+    }
+
+    private fun startScreenshotContentObserver() {
+        screenshotContentObserver = object : ContentObserver(handler) {
+            override fun onChange(selfChange: Boolean, uri: Uri?) {
+                super.onChange(selfChange, uri)
+                if (uri == null) return
+                val now = System.currentTimeMillis()
+                if (now - lastScreenshotTime < 3000) return
+                // 检查是否是截图文件
+                try {
+                    val cursor = contentResolver.query(uri, arrayOf(
+                        MediaStore.Images.Media.DISPLAY_NAME,
+                        MediaStore.Images.Media.RELATIVE_PATH
+                    ), null, null, null)
+                    cursor?.use {
+                        if (it.moveToFirst()) {
+                            val name = it.getString(0) ?: ""
+                            val path = it.getString(1) ?: ""
+                            if (name.contains("screenshot", ignoreCase = true) ||
+                                name.contains("截屏", ignoreCase = true) ||
+                                path.contains("screenshot", ignoreCase = true) ||
+                                path.contains("Screenshots", ignoreCase = true)) {
+                                lastScreenshotTime = now
+                                onScreenshot()
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+        contentResolver.registerContentObserver(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            true,
+            screenshotContentObserver!!
+        )
     }
 
     private fun startObserverForDir(path: String) {
@@ -536,6 +565,7 @@ class OverlayService : Service() {
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         screenshotObserver?.stopWatching()
+        screenshotContentObserver?.let { contentResolver.unregisterContentObserver(it) }
         batteryReceiver?.let { unregisterReceiver(it) }
         overlayView?.let {
             windowManager?.removeView(it)
