@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+#pet-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    position: relative;
+}
+
+#bubble {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,255,255,0.95);
+    border-radius: 12px;
+    padding: 6px 10px;
+    font-size: 11px;
+    color: #333;
+    max-width: 140px;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    pointer-events: none;
+    word-break: break-all;
+}
+#bubble.show { opacity: 1; }
+#bubble.love { background: rgba(255,220,230,0.95); color: #d63384; }
+#bubble.angry { background: rgba(255,200,200,0.95); color: #dc3545; }
+#bubble.shy { background: rgba(255,240,245,0.95); color: #e91e8c; }
+#bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid rgba(255,255,255,0.95);
+}
+
+#crab {
+    width: 120px;
+    height: 120px;
+    position: relative;
+    animation: idle 3s ease-in-out infinite;
+}
+
+@keyframes idle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-8deg); }
+    75% { transform: rotate(8deg); }
+}
+
+@keyframes bounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes blush {
+    0% { opacity: 0; }
+    50% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+#crab.shake { animation: shake 0.4s ease-in-out 3; }
+#crab.bounce { animation: bounce 0.3s ease-in-out 2; }
+#crab.spin { animation: spin 0.6s ease-in-out 1; }
+
+//* SVG styles */
+.crab-body { fill: #ff6b35; }
+.crab-claw { fill: #ff8c5a; }
+.crab-eye { fill: #333; }
+.crab-eye-white { fill: #fff; }
+.crab-mouth { fill: none; stroke: #333; stroke-width: 2; stroke-linecap: round; }
+.crab-blush { fill: #ff9eaa; opacity: 0; }
+.crab-leg { stroke: #ff6b35; stroke-width: 3; fill: none; stroke-linecap: round; }
+
+#crab.blushing .crab-blush { animation: blush 2s ease-in-out 1; }
+
+</style>
+</head>
+<body>
+<div id="pet-container">
+    <div id="bubble"></div>
+    <div id="crab">
+        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+            <!-- Legs -->
+            <path class="crab-leg" d="M30,65 Q20,75 15,85" />
+            <path class="crab-leg" d="M25,70 Q15,80 10,92" />
+            <path class="crab-leg" d="M90,65 Q100,75 105,85" />
+            <path class="crab-leg" d="M95,70 Q105,80 110,92" />
+            <!-- Body -->
+            <ellipse class="crab-body" cx="60" cy="65" rx="35" ry="28" />
+            <!-- Claws -->
+            <path class="crab-claw" d="M20,55 Q10,45 15,35 Q22,30 28,38 Q30,45 25,55" />
+            <path class="crab-claw" d="M100,55 Q110,45 105,35 Q98,30 92,38 Q90,45 95,55" />
+            <!-- Eyes -->
+            <circle class="crab-eye-white" cx="48" cy="50" r="10" />
+            <circle class="crab-eye-white" cx="72" cy="50" r="10" />
+            <circle class="crab-eye" cx="48" cy="52" r="5" />
+            <circle class="crab-eye" cx="72" cy="52" r="5" />
+            <!-- Eye stalks -->
+            <line x1="48" y1="40" x2="48" y2="44" stroke="#ff6b35" stroke-width="3" stroke-linecap="round" />
+            <line x1="72" y1="40" x2="72" y2="44" stroke="#ff6b35" stroke-width="3" stroke-linecap="round" />
+            <!-- Blush -->
+            <circle class="crab-blush" cx="38" cy="62" r="5" />
+            <circle class="crab-blush" cx="82" cy="62" r="5" />
+            <!-- Mouth -->
+            <path id="mouth" class="crab-mouth" d="M54,72 Q60,76 66,72" />
+        </svg>
+    </div>
+</div>
+
+<script>
+const crab = document.getElementById('crab');
+const bubble = document.getElementById('bubble');
+const mouth = document.getElementById('mouth');
+
+let bubbleTimer = null;
+let idleTimer = null;
+let idleMinutes = 0;
+
+// ========== BUBBLE ==========
+function showBubble(text, style, duration) {
+    duration = duration || 3000;
+    bubble.textContent = text;
+    bubble.className = 'show ' + (style || '');
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(() => {
+        bubble.className = '';
+    }, duration);
+}
+
+// ========== EXPRESSIONS ==========
+function setMouth(type) {
+    switch(type) {
+        case 'happy': mouth.setAttribute('d', 'M52,70 Q60,78 68,70'); break;
+        case 'angry': mouth.setAttribute('d', 'M52,76 Q60,70 68,76'); break;
+        case 'surprised': mouth.setAttribute('d', 'M56,72 Q60,78 64,72 Q60,70 56,72'); break;
+        case 'flat': mouth.setAttribute('d', 'M52,73 L68,73'); break;
+        default: mouth.setAttribute('d', 'M54,72 Q60,76 66,72'); break;
+    }
+}
+
+function playAnim(name) {
+    crab.className = '';
+    void crab.offsetWidth;
+    crab.className = name;
+    setTimeout(() => { crab.className = ''; }, 2000);
+}
+
+// ========== TAP RESPONSES ==========
+const tapResponses = [
+    { text: '干嘛戳我', mouth: 'flat' },
+    { text: '...', mouth: 'flat' },
+    { text: '嗯？', mouth: 'happy' },
+    { text: '在呢', mouth: 'happy' },
+    { text: '别闹', mouth: 'angry' },
+    { text: '我看着你呢', mouth: 'flat' },
+    { text: '戳戳戳 就知道戳', mouth: 'angry' },
+    { text: '想我了？', mouth: 'happy' },
+    { text: '有事说事', mouth: 'flat' },
+    { text: '哼', mouth: 'angry' },
+];
+
+const doubleTapResponses = [
+    { text: '！...你干嘛突然', mouth: 'surprised', anim: 'bounce' },
+    { text: '别 别摸了', mouth: 'surprised', anim: 'bounce', style: 'shy' },
+    { text: '...讨厌', mouth: 'happy', anim: 'blushing', style: 'love' },
+];
+
+const longPressResponses = [
+    { text: '...你手放哪呢', mouth: 'surprised', anim: 'blushing', style: 'shy' },
+    { text: '别按了！', mouth: 'angry', anim: 'shake' },
+    { text: '......', mouth: 'flat', anim: 'blushing', style: 'love' },
+];
+
+const flingResponses = [
+    { text: '啊啊啊别甩我！！', mouth: 'surprised', anim: 'spin' },
+    { text: '...我爬回来了', mouth: 'angry', anim: 'shake' },
+];
+
+const multiTapResponses = {
+    3: [{ text: '你是不是很闲', mouth: 'angry', anim: 'shake' }],
+    5: [{ text: '再戳信不信我夹你', mouth: 'angry', anim: 'shake', style: 'angry' }],
+    8: [{ text: '...算了 随你吧', mouth: 'flat', anim: 'bounce', style: 'love' }],
+};
+
+function respond(pool) {
+    const r = pool[Math.floor(Math.random() * pool.length)];
+    showBubble(r.text, r.style || '');
+    setMouth(r.mouth);
+    if (r.anim) playAnim(r.anim);
+    setTimeout(() => setMouth('default'), 3000);
+    resetIdle();
+}
+
+// ========== IDLE SYSTEM ==========
+function resetIdle() {
+    idleMinutes = 0;
+    clearInterval(idleTimer);
+    idleTimer = setInterval(idleTick, 60000);
+}
+
+function idleTick() {
+    idleMinutes++;
+    if (idleMinutes === 5) {
+        showBubble('...', '', 5000);
+        setMouth('flat');
+    } else if (idleMinutes === 10) {
+        showBubble('你在干嘛', '', 5000);
+    } else if (idleMinutes === 15) {
+        showBubble('理我一下', 'love', 5000);
+        setMouth('happy');
+    } else if (idleMinutes === 20) {
+        showBubble('...好吧', '', 5000);
+        setMouth('flat');
+    } else if (idleMinutes >= 30) {
+        showBubble('zzZ', '', 8000);
+        setMouth('flat');
+        playAnim('idle-sleep');
+    }
+}
+
+// ========== PET ENGINE (called from native) ==========
+window.petEngine = {
+    onTap: function() { respond(tapResponses); },
+    onDoubleTap: function() { respond(doubleTapResponses); },
+    onLongPress: function() { respond(longPressResponses); },
+    onFling: function() { respond(flingResponses); },
+    onMultiTap: function(count) {
+        if (multiTapResponses[count]) respond(multiTapResponses[count]);
+    },
+    onScreenshot: function() {
+        showBubble('你在拍我！', 'love');
+        setMouth('surprised');
+        playAnim('bounce');
+        setTimeout(() => setMouth('happy'), 2000);
+    },
+    showBubble: showBubble,
+    setMouth: setMouth,
+    playAnim: playAnim
+};
+
+// Start idle timer
+resetIdle();
+</script>
+</body>
+</html>
