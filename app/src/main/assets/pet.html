@@ -6,7 +6,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;background:transparent;overflow:hidden;user-select:none;-webkit-user-select:none}
-canvas{display:block}
+canvas{display:block;image-rendering:pixelated;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges}
 #bubble{position:absolute;top:0;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.95);border-radius:8px;padding:4px 8px;font-size:11px;color:#333;max-width:130px;text-align:center;opacity:0;transition:opacity 0.3s;box-shadow:0 2px 6px rgba(0,0,0,0.15);pointer-events:none;word-break:break-all;font-family:sans-serif}
 #bubble.show{opacity:1}
 #bubble.love{background:rgba(255,220,230,0.95);color:#d63384}
@@ -18,27 +18,25 @@ canvas{display:block}
 <div id="bubble"></div>
 <canvas id="c"></canvas>
 <script>
-const S=5,W=16,H=14;
+const S=6,W=16,H=12;
 const canvas=document.getElementById("c");
 const ctx=canvas.getContext("2d");
-canvas.width=W*S;canvas.height=H*S+35;
+canvas.width=W*S;canvas.height=H*S+30;
+canvas.style.width=canvas.width+"px";
+canvas.style.height=canvas.height+"px";
 const bubble=document.getElementById("bubble");
-
-const COL={body:"#E07A5F",eye:"#000",blush:"#FAC8D8",white:"#FFF",tear:"#88BBDD",angry:"#FF4444",heart:"#F06090",bubble:"#AAD4F0",headphone:"#333",hpAccent:"#8B5CF6",screen:"#4ADE80"};
-
+const COL={body:"#E07A5F",eye:"#000",blush:"#FAC8D8",white:"#FFF",tear:"#88BBDD",angry:"#FF4444",heart:"#F06090",bubble:"#AAD4F0",headphone:"#333",hpAccent:"#8B5CF6",screen:"#4ADE80",zzz:"#888",note:"#9B59B6"};
 const BODY=[[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,0,0,1,0,1,0,0,1,0,1,0,0,0],[0,0,0,1,0,1,0,0,1,0,1,0,0,0]];
 const LEGS_B=[[0,0,0,0,1,0,1,1,0,1,0,0,0,0],[0,0,0,0,1,0,1,1,0,1,0,0,0,0]];
+const BODY_CURLED=[[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0]];
 const EYE_L=[4,1],EYE_R=[9,1];
-
 let frame=0,state="idle",stateT=0;
 let blinkT=0,isBlink=false,nextBlink=300+Math.random()*600;
 let idleMin=0,bubbleTO=null;
 let lastTapT=0;
 let edgeMode=false,edgeSide="right";
 let appState="";
-
-function px(x,y,c){ctx.fillStyle=c;ctx.fillRect(x*S,y*S+28,S,S);}
-
+function px(x,y,c){ctx.fillStyle=c;ctx.fillRect(x*S,y*S+24,S,S);}
 function drawBody(ox,oy,alt){
   const rows=alt?BODY.slice(0,6):BODY;
   for(let r=0;r<rows.length;r++)for(let c=0;c<14;c++)if(rows[r][c])px(ox+c,oy+r,COL.body);
@@ -52,58 +50,46 @@ function drawEyes(ox,oy,v){
   px(ox+EYE_L[0]+dx,oy+EYE_L[1],COL.eye);px(ox+EYE_R[0]+dx,oy+EYE_R[1],COL.eye);
 }
 function drawBlush(ox,oy){px(ox+3,oy+2,COL.blush);px(ox+10,oy+2,COL.blush);}
-
-// Emotes
-function drawAngryMark(ox,oy){
-  px(ox+12,oy-2,COL.angry);px(ox+13,oy-2,COL.angry);
-  px(ox+12,oy-1,COL.angry);px(ox+13,oy-1,COL.angry);
-}
+function drawAngryMark(ox,oy){px(ox+12,oy-1,COL.angry);px(ox+13,oy-1,COL.angry);px(ox+12,oy,COL.angry);}
 function drawHearts(ox,oy){
   const t=frame*0.05;
   for(let i=0;i<2;i++){
     const hx=ox+11+i*3+Math.sin(t+i*2)*1|0;
-    const hy=oy-3-(frame%60+i*10)/10|0;
-    if(hy>oy-6){px(hx,hy,COL.heart);px(hx+1,hy,COL.heart);px(hx,hy+1,COL.heart);}
+    const hy=oy-2-(frame%60+i*10)/12|0;
+    if(hy>oy-5){px(hx,hy,COL.heart);px(hx+1,hy,COL.heart);px(hx,hy+1,COL.heart);}
   }
 }
 function drawBubbles(ox,oy){
   for(let i=0;i<3;i++){
     const bx=ox+12+i*2;
-    const by=oy-2-((frame+i*15)%40)/7|0;
-    if(by>oy-5)px(bx,by,COL.bubble);
+    const by=oy-1-((frame+i*15)%40)/8|0;
+    if(by>oy-4)px(bx,by,COL.bubble);
   }
 }
-function drawTears(ox,oy){
-  const t=(frame%30)/5|0;
-  px(ox+3,oy+3+t,COL.tear);
-  px(ox+10,oy+3+t,COL.tear);
-}
-function drawSparkle(ox,oy){
-  if(frame%10<4){px(ox+13,oy-1,"#FFD700");px(ox+14,oy-2,"#FFD700");}
-}
-function drawZzz(ox,oy){
-  const zy=oy-2-(frame%80)/15|0;
-  if(zy>oy-5){px(ox+14,zy,"#888");if(zy>oy-4)px(ox+15,zy-1,"#888");}
-}
-
-// Headphones for gaming
+function drawTears(ox,oy){const t=(frame%30)/5|0;px(ox+3,oy+3+t,COL.tear);px(ox+10,oy+3+t,COL.tear);}
+function drawSparkle(ox,oy){if(frame%10<4){px(ox+13,oy-1,"#FFD700");}}
+function drawZzz(ox,oy){const zy=oy-1-(frame%80)/18|0;if(zy>oy-4){px(ox+13,zy,COL.zzz);if(zy>oy-3)px(ox+14,zy-1,COL.zzz);}}
 function drawHeadphones(ox,oy){
   for(let x=3;x<=10;x++)px(ox+x,oy-1,COL.headphone);
   px(ox+2,oy,COL.hpAccent);px(ox+2,oy+1,COL.hpAccent);px(ox+3,oy,COL.hpAccent);
   px(ox+11,oy,COL.hpAccent);px(ox+11,oy+1,COL.hpAccent);px(ox+10,oy,COL.hpAccent);
 }
-
-// Edge mode: half body peeking from side
+// Edge mode: half body peeking from side/top/bottom
 function drawEdge(ox,oy){
   if(edgeSide==="right"){
     for(let r=0;r<8;r++)for(let c=7;c<14;c++)if(BODY[r][c])px(ox+c-7,oy+r,COL.body);
     px(ox+2,oy+1,COL.eye);
-  } else {
+  } else if(edgeSide==="left"){
     for(let r=0;r<8;r++)for(let c=0;c<7;c++)if(BODY[r][c])px(ox+c+7,oy+r,COL.body);
     px(ox+11,oy+1,COL.eye);
+  } else if(edgeSide==="top"){
+    for(let r=4;r<8;r++)for(let c=0;c<14;c++)if(BODY[r][c])px(ox+c,oy+r-4,COL.body);
+    px(ox+EYE_L[0],oy+0,COL.eye);px(ox+EYE_R[0],oy+0,COL.eye);
+  } else if(edgeSide==="bottom"){
+    for(let r=0;r<4;r++)for(let c=0;c<14;c++)if(BODY[r][c])px(ox+c,oy+r+4,COL.body);
+    px(ox+EYE_L[0],oy+5,COL.eye);px(ox+EYE_R[0],oy+5,COL.eye);
   }
 }
-
 // App-specific states
 function drawAppShopping(ox,oy){
   drawBody(ox,oy,false);drawEyes(ox,oy,"forward");
@@ -113,10 +99,9 @@ function drawAppShopping(ox,oy){
 }
 function drawAppChat(ox,oy){
   drawBody(ox,oy,(frame/8|0)%2===1);drawEyes(ox,oy,"forward");
-  for(let x=0;x<5;x++){px(ox-2+x,oy+1,"#555");px(ox-2+x,oy+5,"#555");}
-  for(let y=1;y<5;y++){px(ox-2,oy+y,"#555");px(ox+2,oy+y,"#555");}
-  for(let y=2;y<5;y++)for(let x=-1;x<2;x++)px(ox+x,oy+y,"#222");
-  if(frame%12<5)px(ox,oy+3,COL.screen);
+  for(let x=0;x<4;x++){px(ox-1+x,oy+1,"#555");px(ox-1+x,oy+4,"#555");}
+  for(let y=1;y<4;y++){px(ox-1,oy+y,"#555");px(ox+2,oy+y,"#555");}
+  if(frame%12<5)px(ox,oy+2,COL.screen);
 }
 function drawAppGaming(ox,oy){
   const bob=(frame/8|0)%2;
@@ -127,33 +112,27 @@ function drawAppGaming(ox,oy){
 function drawAppScroll(ox,oy){
   drawBody(ox,oy,false);
   drawEyes(ox,oy,frame%120<60?"right":"left");
-  for(let y=2;y<6;y++)px(ox+14,oy+y,"#444");
-  for(let y=2;y<6;y++)px(ox+15,oy+y,"#444");
+  for(let y=1;y<5;y++)px(ox+14,oy+y,"#444");
+  for(let y=1;y<5;y++)px(ox+15,oy+y,"#444");
+  px(ox+14,oy+2,"#7DD3FC");px(ox+15,oy+2,"#7DD3FC");
   px(ox+14,oy+3,"#7DD3FC");px(ox+15,oy+3,"#7DD3FC");
-  px(ox+14,oy+4,"#7DD3FC");px(ox+15,oy+4,"#7DD3FC");
-  if(frame%80<20)drawAngryMark(ox,oy);
 }
-
 function render(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  const ox=1,oy=3;
+  const ox=1,oy=2;
   const wf=(frame/12|0)%2;
-
   if(edgeMode){drawEdge(ox,oy);frame++;requestAnimationFrame(render);return;}
-
   if(appState==="shopping"){drawAppShopping(ox,oy);frame++;requestAnimationFrame(render);return;}
   if(appState==="chat"){drawAppChat(ox,oy);frame++;requestAnimationFrame(render);return;}
   if(appState==="gaming"){drawAppGaming(ox,oy);frame++;requestAnimationFrame(render);return;}
   if(appState==="scroll"){drawAppScroll(ox,oy);frame++;requestAnimationFrame(render);return;}
-
   switch(state){
     case "idle":drawBody(ox,oy,false);drawEyes(ox,oy,isBlink?"blink":"forward");break;
     case "walk":drawBody(ox,oy,wf===1);drawEyes(ox,oy,"forward");break;
     case "dance":{const d=Math.sin(frame*0.15)*0.5|0;drawBody(ox,oy+d,wf===1);drawEyes(ox,oy+d,"happy");drawBlush(ox,oy+d);drawSparkle(ox,oy+d);}break;
     case "sleep":{
-      const C=[[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0]];
-      for(let r=0;r<5;r++)for(let c=0;c<14;c++)if(C[r][c])px(ox+c,oy+3+r,COL.body);
-      drawZzz(ox,oy+3);
+      for(let r=0;r<5;r++)for(let c=0;c<14;c++)if(BODY_CURLED[r][c])px(ox+c,oy+2+r,COL.body);
+      drawZzz(ox,oy+2);
     }break;
     case "happy":{const b=(frame/8|0)%2;drawBody(ox,oy-b,false);drawEyes(ox,oy-b,"happy");drawBlush(ox,oy-b);drawHearts(ox,oy-b);}break;
     case "shy":drawBody(ox,oy,false);drawEyes(ox,oy,"blink");drawBlush(ox,oy);break;
@@ -161,33 +140,25 @@ function render(){
     case "cry":drawBody(ox,oy,false);drawEyes(ox,oy,"cry");drawTears(ox,oy);break;
     case "love":drawBody(ox,oy,false);drawEyes(ox,oy,"happy");drawBlush(ox,oy);drawHearts(ox,oy);break;
     case "bubble":drawBody(ox,oy,false);drawEyes(ox,oy,"forward");drawBubbles(ox,oy);break;
-    case "fling":{ctx.save();ctx.translate(canvas.width/2,canvas.height/2+10);ctx.rotate(frame*0.2);ctx.translate(-canvas.width/2,-canvas.height/2-10);drawBody(ox,oy,false);drawEyes(ox,oy,"forward");ctx.restore();}break;
+    case "fling":{ctx.save();ctx.translate(canvas.width/2,canvas.height/2);ctx.rotate(frame*0.2);ctx.translate(-canvas.width/2,-canvas.height/2);drawBody(ox,oy,false);drawEyes(ox,oy,"forward");ctx.restore();}break;
     default:drawBody(ox,oy,false);drawEyes(ox,oy,"forward");
   }
-
   frame++;
   blinkT++;
   if(blinkT>=nextBlink&&!isBlink){isBlink=true;setTimeout(()=>{isBlink=false;},150);nextBlink=300+Math.random()*600;blinkT=0;}
   stateT++;
   requestAnimationFrame(render);
 }
-
 function setState(s,dur){state=s;stateT=0;dur=dur||3000;setTimeout(()=>{state="idle";stateT=0;},dur);}
 function showBubble(t,sty,dur){dur=dur||3000;bubble.textContent=t;bubble.className="show "+(sty||"");clearTimeout(bubbleTO);bubbleTO=setTimeout(()=>{bubble.className="";},dur);idleMin=0;}
-
-// Cooldown: 800ms between interactions
 function cooled(){const n=Date.now();if(n-lastTapT<800)return false;lastTapT=n;return true;}
-
 const tapR=[{t:"干嘛戳我",s:"idle"},{t:"...",s:"idle"},{t:"嗯？",s:"idle"},{t:"在呢",s:"happy"},{t:"别闹",s:"angry"},{t:"戳戳戳 就知道戳",s:"angry"},{t:"想我了？",s:"love"},{t:"哼",s:"angry"},{t:"看什么看",s:"idle"},{t:"我蹲这呢",s:"idle"}];
 const dtR=[{t:"！你干嘛突然",s:"shy",y:"shy"},{t:"别 别摸了",s:"shy",y:"shy"},{t:"...讨厌",s:"love",y:"love"}];
 const lpR=[{t:"你手放哪呢",s:"shy",y:"shy"},{t:"别按了！",s:"angry",y:"angry"},{t:"......",s:"love",y:"love"}];
 const fR=[{t:"啊啊啊别甩我！！",s:"fling"},{t:"我爬回来了",s:"angry"}];
 const multiR={3:[{t:"你是不是很闲",s:"angry"}],5:[{t:"再戳信不信我夹你",s:"angry",y:"angry"}],8:[{t:"...算了 随你吧",s:"love",y:"love"}]};
-
 function pick(a){return a[Math.random()*a.length|0];}
 function respond(pool){if(!cooled())return;const r=pick(pool);showBubble(r.t,r.y||"");if(r.s)setState(r.s,3000);}
-
-// Idle emotion escalation: 3/5/8/12/20 minutes
 setInterval(()=>{
   idleMin++;
   if(state!=="idle"||appState)return;
@@ -198,10 +169,7 @@ setInterval(()=>{
   else if(idleMin===20){showBubble("...好吧 我自己玩","");setState("cry",3000);}
   else if(idleMin>=30){showBubble("zzZ");setState("sleep",99999);}
 },60000);
-
-// Random idle animations (slower)
 setInterval(()=>{if(state!=="idle"||appState)return;const r=Math.random();if(r<0.08)setState("walk",2000);else if(r<0.12)setState("dance",3000);else if(r<0.15)setState("bubble",2500);},12000);
-
 window.petEngine={
   onTap:()=>respond(tapR),
   onDoubleTap:()=>respond(dtR),
