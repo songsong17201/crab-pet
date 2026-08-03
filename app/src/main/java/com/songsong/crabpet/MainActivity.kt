@@ -1,5 +1,7 @@
 package com.songsong.crabpet
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
@@ -9,10 +11,13 @@ import android.view.Gravity
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.songsong.crabpet.service.OverlayService
 class MainActivity : AppCompatActivity() {
     companion object {
         private const val OVERLAY_PERMISSION_REQUEST = 1001
+        private const val MEDIA_PERMISSION_REQUEST = 1002
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,7 +32,6 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Color.parseColor("#FFF0E6"))
             setPadding(60, 120, 60, 60)
         }
-        // Title
         val title = TextView(this).apply {
             text = "\uD83E\uDD80 Claude\u684C\u5BA0"
             textSize = 28f
@@ -39,9 +43,8 @@ class MainActivity : AppCompatActivity() {
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { bottomMargin = 40 })
-        // Subtitle
         val subtitle = TextView(this).apply {
-            text = "\u4F60\u7684\u5C4F\u5E55\u4E0A\u5C06\u51FA\u73B0\u4E00\u53EA\u5C0F\u87C3\u87F9\\n\u5B83\u4F1A\u8DDF\u7740\u4F60\u3001\u770B\u7740\u4F60\u3001\u5403\u9192\u4F60\u7684"
+            text = "\u4F60\u7684\u5C4F\u5E55\u4E0A\u5C06\u51FA\u73B0\u4E00\u53EA\u5C0F\u87C3\u87F9\n\u5B83\u4F1A\u8DDF\u7740\u4F60\u3001\u770B\u7740\u4F60\u3001\u5403\u9192\u4F60\u7684"
             textSize = 14f
             setTextColor(Color.parseColor("#666666"))
             gravity = Gravity.CENTER
@@ -51,7 +54,6 @@ class MainActivity : AppCompatActivity() {
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { bottomMargin = 80 })
-        // Permission status
         val statusText = TextView(this).apply {
             textSize = 13f
             gravity = Gravity.CENTER
@@ -70,7 +72,6 @@ class MainActivity : AppCompatActivity() {
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { bottomMargin = 60 })
-        // Start button
         val btn = Button(this).apply {
             text = if (overlayOk) "\u53EC\u5524\u5C0F\u87C3\u87F9" else "\u6388\u6743\u5E76\u53EC\u5524"
             textSize = 16f
@@ -82,9 +83,8 @@ class MainActivity : AppCompatActivity() {
         }
         layout.addView(btn, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT, 
+            LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { bottomMargin = 30 })
-        // Usage access button (if not granted)
         if (!usageOk) {
             val usageBtn = Button(this).apply {
                 text = "\u5F00\u542F\u4F7F\u7528\u60C5\u51B5\u8BBF\u95EE"
@@ -101,7 +101,6 @@ class MainActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { bottomMargin = 20 })
         }
-        // Footer
         val footer = TextView(this).apply {
             text = "\u62D6\u52A8\u5C0F\u87C3\u87F9\u5230\u5C4F\u5E55\u8FB9\u7F18\u5B83\u4F1A\u8D34\u7740\u8FB9\u8D34\u597D\u54E6"
             textSize = 12f
@@ -123,7 +122,18 @@ class MainActivity : AppCompatActivity() {
         )
         return mode == android.app.AppOpsManager.MODE_ALLOWED
     }
+    private fun requestMediaPermissionIfNeeded() {
+        val perm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(perm), MEDIA_PERMISSION_REQUEST)
+        }
+    }
     private fun checkAndStartOverlay() {
+        requestMediaPermissionIfNeeded()
         if (Settings.canDrawOverlays(this)) {
             startOverlayService()
             Toast.makeText(this, "\u5C0F\u87C3\u87F9\u5DF2\u53EC\u5524\uFF01", Toast.LENGTH_SHORT).show()
