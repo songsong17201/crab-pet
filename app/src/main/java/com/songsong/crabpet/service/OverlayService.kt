@@ -12,6 +12,8 @@ import android.view.*
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.WebSettings
+import android.app.usage.UsageStatsManager
+import android.app.usage.UsageEvents
 import androidx.core.app.NotificationCompat
 import com.songsong.crabpet.MainActivity
 import java.util.Calendar
@@ -28,12 +30,16 @@ class OverlayService : Service() {
     companion object {
         private const val CHANNEL_ID = "crab_pet_channel"
         private const val NOTIFICATION_ID = 1001
-        private const val PET_SIZE_DP = 150
-        private const val PET_HEIGHT_DP = 180
+        // Smaller touch area: just the crab pixel body size
+        private const val PET_SIZE_DP = 90
+        private const val PET_HEIGHT_DP = 110
         private const val DOUBLE_TAP_TIMEOUT = 300L
         private const val LONG_PRESS_TIMEOUT = 600L
-        private const val MOVE_THRESHOLD = 10
+        private const val MOVE_THRESHOLD = 15
+        private const val TAP_DELAY = 320L
         private const val WHISPER_INTERVAL = 3600_000L
+        private const val APP_CHECK_INTERVAL = 3000L
+        private const val EDGE_THRESHOLD_DP = 30
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -44,6 +50,7 @@ class OverlayService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification(getWhisper()))
         setupOverlay()
         startWhisperRotation()
+        startAppDetection()
     }
 
     // ========== OVERLAY SETUP ==========
@@ -94,6 +101,7 @@ class OverlayService : Service() {
     private var hasMoved = false
     private var tapCount = 0
     private var lastTapCountTime = 0L
+    private var pendingSingleTap = false
 
     private fun createTouchListener(): View.OnTouchListener {
         return View.OnTouchListener { _, event ->
@@ -123,10 +131,22 @@ class OverlayService : Service() {
                     if (!hasMoved) {
                         when {
                             elapsed > LONG_PRESS_TIMEOUT -> onLongPress()
-                            System.currentTimeMillis() - lastTapTime < DOUBLE_TAP_TIMEOUT -> onDoubleTap()
+                            System.currentTimeMillis() - lastTapTime < DOUBLE_TAP_TIMEOUT -> {
+                                pendingSingleTap = false
+                                handler.removeCallbacksAndMessages("tap")
+                                onDoubleTap()
+                            }
                             else -> {
                                 lastTapTime = System.currentTimeMillis()
-                                onTap()
+                                // Delay single tap to allow double-tap detection
+                                pendingSingleTap = true
+                                val tapToken = "tap"
+                                handler.postDelayed({
+                                    if (pendingSingleTap) {
+                                        pendingSingleTap = false
+                                        onTap()
+                                    }
+                                }, TAP_DELAY)
                             }
                         }
                         // Tap counter
@@ -145,13 +165,48 @@ class OverlayService : Service() {
                         val dx = (event.rawX - initialTouchX).toDouble()
                         val dy = (event.rawY - initialTouchY).toDouble()
                         val velocity = sqrt(dx * dx + dy * dy)
-                        if (velocity > 200 && elapsed < 400) {
+                        if (velocity > 250 && elapsed < 400) {
                             onFling()
                         }
+                        // Check edge snap
+                        checkEdgeSnap()
                     }
                     true
                 }
                 else -> false
+            }
+        }
+    }
+
+    private fun checkEdgeSnap() {
+        val dm = resources.displayMetrics
+        val screenW = dm.widthPixels
+        val edgePx = dpToPx(EDGE_THRESHOLD_DP)
+        val currentX = params?.x ?: 0
+        val viewW = dpToPx(PET_SIZE_DP)
+
+        when {
+            currentX < edgePx -> {
+                // Snap to left edge
+                params?.x = -viewW / 3
+                windowManager?.updateViewLayout(overlayView, params)
+                overlayView?.evaluateJavascript(
+                    "window.petEngine && window.petEngine.setEdgeMode(true,'left')", null
+                )
+            }
+            currentX + viewW > screenW - edgePx -> {
+                // Snap to right edge
+                params?.x = screenW - viewW * 2 / 3
+                windowManager?.updateViewLayout(overlayView, params)
+                overlayView?.evaluateJavascript(
+                    "window.petEngine && window.petEngine.setEdgeMode(true,'right')", null
+                )
+            }
+            else -> {
+                // Not at edge, disable edge mode
+                overlayView?.evaluateJavascript(
+                    "window.petEngine && window.petEngine.setEdgeMode(false)", null
+                )
             }
         }
     }
@@ -184,6 +239,48 @@ class OverlayService : Service() {
         overlayView?.evaluateJavascript(
             "window.petEngine && window.petEngine.onMultiTap($count)", null
         )
+    }
+
+    // ========== APP DETECTION ==========
+
+    private var currentAppState = ""
+
+    private fun startAppDetection() {
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                detectForegroundApp()
+                handler.postDelayed(this, APP_CHECK_INTERVAL)
+            }
+        }, APP_CHECK_INTERVAL)
+    }
+
+    private fun detectForegroundApp() {
+        try {
+            val usm = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return
+            val now = System.currentTimeMillis()
+            val events = usm.queryEvents(now - 5000, now)
+            var lastPkg = ""
+            val event = UsageEvents.Event()
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                    lastPkg = event.packageName
+                }
+            }
+            val newState = when {
+                lastPkg.contains("taobao") || lastPkg.contains("xianyu") || lastPkg.contains("jd") -> "shopping"
+                lastPkg.contains("tencent.mm") || lastPkg.contains("tencent.mobileqq") || lastPkg.contains("tencent.tim") -> "chat"
+                lastPkg.contains("game") || lastPkg.contains("mihoyo") || lastPkg.contains("netease") || lastPkg.contains("tgc.sky") || lastPkg.contains("hypergryph") -> "gaming"
+                lastPkg.contains("ugc.aweme") || lastPkg.contains("xingin.xhs") || lastPkg.contains("kuaishou") || lastPkg.contains("bilibili") -> "scroll"
+                else -> ""
+            }
+            if (newState != currentAppState) {
+                currentAppState = newState
+                overlayView?.evaluateJavascript(
+                    "window.petEngine && window.petEngine.setAppState('$newState')", null
+                )
+            }
+        } catch (_: Exception) {}
     }
 
     // ========== NOTIFICATION WHISPERS ==========
@@ -259,7 +356,7 @@ class OverlayService : Service() {
             PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("🦀")
+            .setContentTitle("\uD83E\uDD80")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .setContentIntent(pendingIntent)
