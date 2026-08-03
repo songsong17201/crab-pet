@@ -166,31 +166,31 @@ class OverlayService : Service() {
         val currentY = params?.y ?: 0
         val viewW = dpToPx(PET_SIZE_DP)
         val viewH = dpToPx(PET_HEIGHT_DP)
-        val halfW = viewW / 2
-        val halfH = viewH / 2
-        // Crab snaps to edge showing only half body (peeking from edge)
+        val quarterW = viewW / 4
+        val quarterH = viewH / 4
+        // Crab snaps to edge showing 3/4 body (peeking from edge)
         when {
             currentX < edgePx -> {
-                // Left edge: half body hidden on left, peeking
-                params?.x = -halfW
+                // Left edge: only 1/4 hidden, 3/4 visible
+                params?.x = -quarterW
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'left')")
             }
             currentX + viewW > screenW - edgePx -> {
-                // Right edge: half body hidden on right, peeking
-                params?.x = screenW - halfW
+                // Right edge: only 1/4 hidden, 3/4 visible
+                params?.x = screenW - viewW + quarterW
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'right')")
             }
             currentY < edgePx -> {
-                // Top edge: half body hidden on top, peeking down
-                params?.y = -halfH
+                // Top edge: only 1/4 hidden, 3/4 visible
+                params?.y = -quarterH
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'top')")
             }
             currentY + viewH > screenH - edgePx -> {
-                // Bottom edge: half body hidden on bottom, peeking up
-                params?.y = screenH - halfH
+                // Bottom edge: only 1/4 hidden, 3/4 visible
+                params?.y = screenH - viewH + quarterH
                 windowManager?.updateViewLayout(overlayView, params)
                 evalJS("window.petEngine&&window.petEngine.setEdgeMode(true,'bottom')")
             }
@@ -255,6 +255,8 @@ class OverlayService : Service() {
                 lastPkg.contains("tencent.mm") || lastPkg.contains("tencent.mobileqq") || lastPkg.contains("tencent.tim") -> "chat"
                 lastPkg.contains("game") || lastPkg.contains("mihoyo") || lastPkg.contains("netease.sky") || lastPkg.contains("tgc.sky") || lastPkg.contains("hypergryph") || lastPkg.contains("com.tencent.tmgp") || lastPkg.contains("com.netease") -> "gaming"
                 lastPkg.contains("ugc.aweme") || lastPkg.contains("xingin.xhs") || lastPkg.contains("kuaishou") || lastPkg.contains("bilibili") -> "scroll"
+                lastPkg.contains("music") || lastPkg.contains("qqmusic") || lastPkg.contains("kugou") || lastPkg.contains("kuwo") || lastPkg.contains("cloudmusic") || lastPkg.contains("spotify") -> "music"
+                lastPkg.contains("camera") || lastPkg.contains("gallery") || lastPkg.contains("photos") || lastPkg.contains("album") -> "camera"
                 else -> ""
             }
             if (newState != currentAppState) {
@@ -351,4 +353,5 @@ class OverlayService : Service() {
         super.onDestroy()
     }
 }
+
 
