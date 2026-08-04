@@ -7,230 +7,316 @@
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;background:transparent;overflow:visible;user-select:none;-webkit-user-select:none}
 canvas{display:block;image-rendering:pixelated;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges}
-#wrap{position:relative;display:inline-block;overflow:visible;padding-top:30px}
-#bubble{position:absolute;top:2px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.95);border-radius:8px;padding:4px 8px;font-size:10px;line-height:1.3;color:#333;max-width:200px;min-width:20px;width:max-content;text-align:center;opacity:0;transition:opacity 0.3s,background 0.3s;box-shadow:0 1px 4px rgba(0,0,0,0.12);pointer-events:none;word-break:break-word;overflow-wrap:break-word;font-family:sans-serif;white-space:normal;z-index:10}
-#bubble.show{opacity:1}
+#wrap{position:relative;display:inline-block;overflow:visible;padding-top:40px}
+#bubble{position:absolute;top:0px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.95);border-radius:10px;padding:6px 10px;font-size:11px;line-height:1.4;color:#333;max-width:180px;min-width:20px;width:max-content;text-align:center;opacity:0;transition:opacity 0.3s,background 0.3s,transform 0.3s;box-shadow:0 2px 8px rgba(0,0,0,0.15);pointer-events:none;word-break:break-word;overflow-wrap:break-word;white-space:normal;font-family:sans-serif;z-index:10}
+#bubble.show{opacity:1;transform:translateX(-50%) translateY(-2px)}
 #bubble.love{background:rgba(255,220,235,0.95);color:#d63384}
 #bubble.shy{background:rgba(255,230,240,0.95);color:#e91e8c}
 #bubble.angry{background:rgba(255,200,200,0.95);color:#dc3545}
-#bubble.jealous{background:rgba(255,245,180,0.95);color:#b8860b}
-#bubble.envy{background:rgba(200,255,200,0.95);color:#2e8b57}
+#bubble.sad{background:rgba(200,220,255,0.95);color:#4a6fa5}
+#bubble.jealous{background:rgba(200,255,200,0.95);color:#2e8b57}
+#bubble.sleepy{background:rgba(230,230,250,0.95);color:#666}
+#bubble.excited{background:rgba(255,250,200,0.95);color:#d4a017}
+#bubble::after{content:"";position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:6px solid rgba(255,255,255,0.95)}
+#bubble.love::after{border-top-color:rgba(255,220,235,0.95)}
+#bubble.shy::after{border-top-color:rgba(255,230,240,0.95)}
+#bubble.angry::after{border-top-color:rgba(255,200,200,0.95)}
+#bubble.sad::after{border-top-color:rgba(200,220,255,0.95)}
+#bubble.jealous::after{border-top-color:rgba(200,255,200,0.95)}
+#bubble.sleepy::after{border-top-color:rgba(230,230,250,0.95)}
+#bubble.excited::after{border-top-color:rgba(255,250,200,0.95)}
+#particles{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5}
 </style>
 </head>
 <body>
 <div id="wrap">
 <div id="bubble"></div>
 <canvas id="c"></canvas>
+<canvas id="particles"></canvas>
 </div>
 <script>
-var S=4,S2=2,W=16,H=12;
+var S=4,W=16,H=14;
 var canvas=document.getElementById("c");
 var ctx=canvas.getContext("2d");
-canvas.width=W*S;canvas.height=(H+6)*S;
+canvas.width=W*S;canvas.height=H*S;
 canvas.style.width=canvas.width+"px";
 canvas.style.height=canvas.height+"px";
+var pCanvas=document.getElementById("particles");
+var pCtx=pCanvas.getContext("2d");
+pCanvas.width=W*S;pCanvas.height=(H+10)*S;
+pCanvas.style.width=pCanvas.width+"px";
+pCanvas.style.height=pCanvas.height+"px";
+pCanvas.style.position="absolute";
+pCanvas.style.top="-40px";
+pCanvas.style.left="0";
 var bubble=document.getElementById("bubble");
-var COL={body:"#E07A5F",eye:"#000",blush:"#FAC8D8",white:"#FFF",tear:"#88BBDD",angry:"#FF4444",heart:"#F06090",zzz:"#888",jealous:"#FFD700",note:"#9B59B6",hpBand:"#333",hpPad:"#8B5CF6",camera:"#555",cameraLens:"#87CEEB"};
-var BODY=[[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,0,0,1,0,1,0,0,1,0,1,0,0,0],[0,0,0,1,0,1,0,0,1,0,1,0,0,0]];
-var LEGS_B=[[0,0,0,0,1,0,1,1,0,1,0,0,0,0],[0,0,0,0,1,0,1,1,0,1,0,0,0,0]];
-var BODY_CURLED=[[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0],[0,0,0,1,1,1,1,1,1,1,1,0,0,0]];
-var EYE_L=[4,1],EYE_R=[9,1];
-var frame=0,state="idle",stateT=0,animLock=false;
-var blinkT=0,isBlink=false,nextBlink=300+Math.random()*600;
-var idleMin=0,bubbleTO=null,lastTapT=0;
-var edgeMode=false,edgeSide="none",appState="";
+var COL={body:"#E07A5F",bodyDark:"#C4624A",eye:"#000",eyeWhite:"#FFF",blush:"#FAC8D8",tear:"#88BBDD",angry:"#FF4444",heart:"#F06090",zzz:"#9999CC",jealous:"#6DBF6D",star:"#FFD700",note:"#9B59B6"};
+
+// === BODY PIXEL DATA ===
+var BODY=[
+[0,0,0,1,1,1,1,1,1,1,1,0,0,0],
+[0,0,0,1,1,1,1,1,1,1,1,0,0,0],
+[0,1,1,1,1,1,1,1,1,1,1,1,1,0],
+[0,1,1,1,1,1,1,1,1,1,1,1,1,0],
+[0,0,0,1,1,1,1,1,1,1,1,0,0,0],
+[0,0,0,1,1,1,1,1,1,1,1,0,0,0],
+[0,0,0,1,0,1,0,0,1,0,1,0,0,0],
+[0,0,0,1,0,1,0,0,1,0,1,0,0,0]
+];
+var LEGS=[
+[0,0,0,0,1,0,1,1,0,1,0,0,0,0],
+[0,0,0,0,1,0,1,1,0,1,0,0,0,0]
+];
+var BODY_CURL=[
+[0,0,0,1,1,1,1,1,1,1,1,0,0,0],
+[0,1,1,1,1,1,1,1,1,1,1,1,1,0],
+[0,1,1,1,1,1,1,1,1,1,1,1,1,0],
+[0,0,0,1,1,1,1,1,1,1,1,0,0,0],
+[0,0,0,1,1,1,1,1,1,1,1,0,0,0]
+];
+
+// === STATE ===
+var emotion="idle";
+var action="idle";
+var frame=0,stateTimer=0;
+var blinkT=0,isBlink=false,nextBlink=200+Math.random()*400;
+var idleTime=0,lastInteract=Date.now();
+var walkDir=1,walkX=0,jumpY=0,jumpPhase=0;
+var particles=[];
+var bubbleTimer=null;
+var dragState={dragging:false,startX:0,startY:0,startT:0};
+var tapCount=0,tapTimer=null,longTimer=null;
+var isLongPress=false;
+
+// === DRAW FUNCTIONS ===
 function px(x,y,c){ctx.fillStyle=c;ctx.fillRect(x*S,y*S,S,S);}
-function spx(sx,sy,c){ctx.fillStyle=c;ctx.fillRect(sx*S2,sy*S2,S2,S2);}
-function drawBody(ox,oy,alt){
-  var rows=alt?BODY.slice(0,6):BODY;
-  for(var r=0;r<rows.length;r++)for(var c=0;c<14;c++)if(rows[r][c])px(ox+c,oy+r,COL.body);
-  if(alt){for(var r=0;r<2;r++)for(var c=0;c<14;c++)if(LEGS_B[r][c])px(ox+c,oy+6+r,COL.body);}
+
+function drawBody(ox,oy,color){
+  var c=color||COL.body;
+  for(var r=0;r<BODY.length;r++)
+    for(var i=0;i<14;i++)
+      if(BODY[r][i])px(ox+i,oy+r,c);
 }
-function drawEyes(ox,oy,v){
-  if(v==="blink")return;
-  if(v==="happy"){px(ox+EYE_L[0],oy+EYE_L[1]+1,COL.eye);px(ox+EYE_R[0],oy+EYE_R[1]+1,COL.eye);return;}
-  if(v==="cry"){px(ox+EYE_L[0],oy+EYE_L[1],COL.eye);px(ox+EYE_R[0],oy+EYE_R[1],COL.eye);px(ox+EYE_L[0],oy+EYE_L[1]+1,COL.tear);px(ox+EYE_R[0],oy+EYE_R[1]+1,COL.tear);return;}
-  if(v==="dot"){px(ox+EYE_L[0],oy+EYE_L[1],COL.eye);px(ox+EYE_R[0],oy+EYE_R[1],COL.eye);return;}
-  if(v==="wink"){px(ox+EYE_L[0],oy+EYE_L[1],COL.eye);px(ox+EYE_R[0],oy+EYE_R[1]+1,COL.eye);return;}
-  if(v==="squint"){px(ox+EYE_L[0],oy+EYE_L[1]+1,COL.eye);px(ox+EYE_R[0],oy+EYE_R[1]+1,COL.eye);return;}
-  if(v==="squeeze"){var bx1=(ox+EYE_L[0])*2,by1=(oy+EYE_L[1])*2;var bx2=(ox+EYE_R[0])*2,by2=(oy+EYE_R[1])*2;spx(bx1,by1,COL.eye);spx(bx1+1,by1+1,COL.eye);spx(bx1,by1+2,COL.eye);spx(bx2+1,by2,COL.eye);spx(bx2,by2+1,COL.eye);spx(bx2+1,by2+2,COL.eye);return;}
-  if(v==="dizzy"){var bx1=(ox+EYE_L[0])*2,by1=(oy+EYE_L[1])*2;var bx2=(ox+EYE_R[0])*2,by2=(oy+EYE_R[1])*2;spx(bx1,by1,COL.eye);spx(bx1+1,by1+1,COL.eye);spx(bx1+1,by1,COL.eye);spx(bx1,by1+1,COL.eye);spx(bx2,by2,COL.eye);spx(bx2+1,by2+1,COL.eye);spx(bx2+1,by2,COL.eye);spx(bx2,by2+1,COL.eye);return;}
-  var dx=0;if(v==="left")dx=-1;else if(v==="right")dx=1;
-  px(ox+EYE_L[0]+dx,oy+EYE_L[1],COL.eye);px(ox+EYE_R[0]+dx,oy+EYE_R[1],COL.eye);
+
+function drawLegs(ox,oy,phase){
+  var offsets=phase%2===0?[0,1,0,1]:[1,0,1,0];
+  var legCols=[[3,6],[4,6],[9,6],[10,6]];
+  for(var i=0;i<legCols.length;i++){
+    px(ox+legCols[i][0],oy+legCols[i][1]+offsets[i],COL.body);
+    px(ox+legCols[i][0],oy+legCols[i][1]+1+offsets[i],COL.body);
+  }
 }
-function drawBlush(ox,oy){px(ox+3,oy+2,COL.blush);px(ox+10,oy+2,COL.blush);}
-function drawAngryMark(ox,oy){var bx=(ox+12)*2,by=(oy-1)*2;spx(bx,by,COL.angry);spx(bx+2,by,COL.angry);spx(bx+1,by+1,COL.angry);spx(bx,by+2,COL.angry);spx(bx+2,by+2,COL.angry);}
-function drawHearts(ox,oy){var t=frame*0.05;for(var i=0;i<2;i++){var bx=(ox+11+i*2)*2+(Math.sin(t+i*2)*2|0);var by=(oy-1)*2-((frame%50+i*8)/5|0);if(by>(oy-3)*2){spx(bx,by+1,COL.heart);spx(bx+2,by+1,COL.heart);spx(bx+1,by,COL.heart);}}}
-function drawTears(ox,oy){var t=(frame%30)/5|0;var bx1=(ox+3)*2,bx2=(ox+10)*2,by=(oy+3)*2+t;spx(bx1,by,COL.tear);spx(bx1,by+1,COL.tear);spx(bx2,by,COL.tear);spx(bx2,by+1,COL.tear);}
-function drawZzz(ox,oy){var bx=(ox+12)*2,by=(oy-1)*2-((frame%80)/9|0);if(by>(oy-3)*2){spx(bx,by,COL.zzz);spx(bx+1,by,COL.zzz);spx(bx+2,by,COL.zzz);}if(by-2>(oy-3)*2){spx(bx+1,by-2,COL.zzz);spx(bx+2,by-2,COL.zzz);}}
-function drawJealousMark(ox,oy){var bx=(ox+12)*2,by=(oy-1)*2;spx(bx+1,by,COL.jealous);spx(bx,by+1,"#FFA500");spx(bx+1,by+1,COL.jealous);spx(bx+2,by+1,"#FFA500");}
-function drawSweat(ox,oy){if(frame%20<12){var bx=(ox+12)*2,by=oy*2;spx(bx,by,COL.tear);spx(bx,by+1,COL.tear);}}
-function drawHeadphones(ox,oy){var bx=(ox+3)*2,by=oy*2-2;var w=(ox+10)*2-bx+2;for(var i=0;i<=w;i++)spx(bx+i,by,COL.hpBand);spx(bx,by+1,COL.hpBand);spx(bx+w,by+1,COL.hpBand);spx(bx-1,by+1,COL.hpPad);spx(bx-1,by+2,COL.hpPad);spx(bx+w+1,by+1,COL.hpPad);spx(bx+w+1,by+2,COL.hpPad);}
-function drawMusicNote(ox,oy){var t=frame*0.03;var bx=(ox+13)*2+(Math.sin(t)*2|0),by=(oy-1)*2-((frame%60)/8|0);if(by>(oy-3)*2){spx(bx,by,COL.note);spx(bx,by+1,COL.note);spx(bx+1,by+1,COL.note);}}
-function drawCamera(ox,oy){var bx=(ox+12)*2,by=(oy+1)*2;for(var i=0;i<5;i++)for(var j=0;j<3;j++)spx(bx+i,by+j+1,COL.camera);spx(bx+1,by,COL.camera);spx(bx+2,by,COL.camera);spx(bx+3,by,COL.camera);spx(bx+2,by+2,COL.cameraLens);spx(bx+3,by+2,COL.cameraLens);}
-function drawPeek(ox,oy){for(var r=0;r<4;r++)for(var c=0;c<14;c++)if(BODY[r][c])px(ox+c,oy+r+2,COL.body);drawEyes(ox,oy+2,frame%120<60?"left":"right");}
-function drawCute(ox,oy){var b=(frame/10|0)%2;drawBody(ox,oy-b,false);drawEyes(ox,oy-b,"squint");drawBlush(ox,oy-b);if(frame%16<6){var bx=(ox+13)*2,by=(oy-b-1)*2;spx(bx,by,"#FFD700");spx(bx+1,by+1,"#FFD700");}}
-function drawGrumpy(ox,oy){drawBody(ox,oy,false);drawEyes(ox,oy,"left");drawAngryMark(ox,oy);drawSweat(ox,oy);}
-function drawDoze(ox,oy){var nod=(frame%40<20)?0:1;drawBody(ox,oy+nod,false);drawEyes(ox,oy+nod,"blink");drawZzz(ox,oy+nod);}
-function drawEdgeCrab(ox,oy){drawBody(ox,oy,false);drawEyes(ox,oy,isBlink?"blink":"squint");drawBlush(ox,oy);}
-// App states (no glasses - removed)
-function drawAppChat(ox,oy){drawBody(ox,oy,false);drawEyes(ox,oy,"dot");}
-function drawAppMusic(ox,oy){var bob=(frame/10|0)%2;drawBody(ox,oy+bob,false);drawEyes(ox,oy+bob,"squint");drawHeadphones(ox,oy+bob);drawMusicNote(ox,oy+bob);}
-function drawAppCamera(ox,oy){drawBody(ox,oy,false);drawEyes(ox,oy,"forward");drawCamera(ox,oy);}
-function drawAppGaming(ox,oy){var bob=(frame/8|0)%2;drawBody(ox,oy+bob,false);drawEyes(ox,oy+bob,"forward");drawHeadphones(ox,oy+bob);}
-function drawAppScroll(ox,oy){drawBody(ox,oy,false);drawEyes(ox,oy,frame%120<60?"right":"left");var bx=(ox+14)*2,by=(oy+1)*2;for(var j=0;j<4;j++)spx(bx,by+j,"#444");spx(bx,by+1,"#7DD3FC");spx(bx,by+2,"#7DD3FC");}
-function drawAppShopping(ox,oy){drawBody(ox,oy,false);drawEyes(ox,oy,"forward");var bx=(ox+13)*2,by=(oy+1)*2;for(var j=0;j<4;j++)for(var i=0;i<3;i++)spx(bx+i,by+j,"#FFF8E7");spx(bx+1,by+3,"#444");if(frame%12<5)spx(bx-1,(oy-1)*2,"#FFD700");}
-function render(){
+
+function drawEyesNormal(ox,oy){
+  if(isBlink){px(ox+4,oy+2,COL.eye);px(ox+9,oy+2,COL.eye);return;}
+  px(ox+4,oy+2,COL.eye);px(ox+9,oy+2,COL.eye);
+  px(ox+4,oy+3,COL.eye);px(ox+9,oy+3,COL.eye);
+}
+
+function drawEyesHappy(ox,oy){
+  px(ox+4,oy+2,COL.eye);px(ox+9,oy+2,COL.eye);
+  px(ox+3,oy+2,COL.eye);px(ox+10,oy+2,COL.eye);
+  px(ox+5,oy+3,COL.blush);px(ox+8,oy+3,COL.blush);
+  px(ox+6,oy+3,COL.blush);px(ox+7,oy+3,COL.blush);
+}
+
+function drawEyesShy(ox,oy){
+  px(ox+4,oy+3,COL.eye);px(ox+9,oy+3,COL.eye);
+  px(ox+3,oy+4,COL.blush);px(ox+4,oy+4,COL.blush);px(ox+5,oy+4,COL.blush);
+  px(ox+8,oy+4,COL.blush);px(ox+9,oy+4,COL.blush);px(ox+10,oy+4,COL.blush);
+}
+
+function drawEyesAngry(ox,oy){
+  px(ox+3,oy+1,COL.eye);px(ox+5,oy+1,COL.eye);
+  px(ox+4,oy+2,COL.eye);px(ox+4,oy+3,COL.angry);
+  px(ox+8,oy+1,COL.eye);px(ox+10,oy+1,COL.eye);
+  px(ox+9,oy+2,COL.eye);px(ox+9,oy+3,COL.angry);
+}
+
+function drawEyesSad(ox,oy){
+  px(ox+4,oy+2,COL.eye);px(ox+9,oy+2,COL.eye);
+  px(ox+4,oy+3,COL.eye);px(ox+9,oy+3,COL.eye);
+  var tearOff=Math.floor(frame/8)%3;
+  px(ox+5,oy+3+tearOff,COL.tear);px(ox+8,oy+3+tearOff,COL.tear);
+}
+
+function drawEyesLove(ox,oy){
+  px(ox+4,oy+2,COL.heart);px(ox+3,oy+2,COL.heart);px(ox+5,oy+2,COL.heart);
+  px(ox+4,oy+3,COL.heart);
+  px(ox+9,oy+2,COL.heart);px(ox+8,oy+2,COL.heart);px(ox+10,oy+2,COL.heart);
+  px(ox+9,oy+3,COL.heart);
+}
+
+function drawEyesSleepy(ox,oy){
+  px(ox+4,oy+3,COL.eye);px(ox+5,oy+3,COL.eye);
+  px(ox+9,oy+3,COL.eye);px(ox+8,oy+3,COL.eye);
+}
+
+function drawEyesJealous(ox,oy){
+  px(ox+4,oy+2,COL.eye);px(ox+9,oy+2,COL.eye);
+  px(ox+4,oy+3,COL.eye);px(ox+9,oy+3,COL.eye);
+  px(ox+3,oy+2,COL.eye);px(ox+10,oy+2,COL.eye);
+  px(ox+3,oy+3,COL.eye);px(ox+10,oy+3,COL.eye);
+}
+
+function drawEyesExcited(ox,oy){
+  px(ox+3,oy+2,COL.star);px(ox+4,oy+1,COL.star);px(ox+5,oy+2,COL.star);px(ox+4,oy+3,COL.star);px(ox+4,oy+2,COL.eyeWhite);
+  px(ox+8,oy+2,COL.star);px(ox+9,oy+1,COL.star);px(ox+10,oy+2,COL.star);px(ox+9,oy+3,COL.star);px(ox+9,oy+2,COL.eyeWhite);
+}
+
+function drawCrab(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  var ox=1,oy=5,wf=(frame/12|0)%2;
-  if(edgeMode){drawEdgeCrab(ox,oy);frame++;requestAnimationFrame(render);return;}
-  if(appState==="chat")drawAppChat(ox,oy);
-  else if(appState==="music")drawAppMusic(ox,oy);
-  else if(appState==="gaming")drawAppGaming(ox,oy);
-  else if(appState==="camera")drawAppCamera(ox,oy);
-  else if(appState==="shopping")drawAppShopping(ox,oy);
-  else if(appState==="scroll")drawAppScroll(ox,oy);
-  else{
-    switch(state){
-      case "idle":drawBody(ox,oy,false);drawEyes(ox,oy,isBlink?"blink":"forward");break;
-      case "walk":drawBody(ox,oy,wf===1);drawEyes(ox,oy,"forward");break;
-      case "dance":var d=Math.sin(frame*0.15)*0.5|0;drawBody(ox,oy+d,wf===1);drawEyes(ox,oy+d,"squint");drawBlush(ox,oy+d);break;
-      case "peek":drawPeek(ox,oy);break;
-      case "cute":drawCute(ox,oy);break;
-      case "grumpy":drawGrumpy(ox,oy);break;
-      case "doze":drawDoze(ox,oy);break;
-      case "sleep":for(var r=0;r<5;r++)for(var c=0;c<14;c++)if(BODY_CURLED[r][c])px(ox+c,oy+2+r,COL.body);drawZzz(ox,oy+2);break;
-      case "happy":var b=(frame/10|0)%2;drawBody(ox,oy-b,false);drawEyes(ox,oy-b,"squint");drawBlush(ox,oy-b);drawHearts(ox,oy-b);break;
-      case "shy":drawBody(ox,oy,false);drawEyes(ox,oy,"squeeze");drawBlush(ox,oy);drawHearts(ox,oy);break;
-      case "angry":drawBody(ox,oy,false);drawEyes(ox,oy,"forward");drawAngryMark(ox,oy);break;
-      case "cry":drawBody(ox,oy,false);drawEyes(ox,oy,"cry");drawTears(ox,oy);break;
-      case "love":drawBody(ox,oy,false);drawEyes(ox,oy,"squint");drawBlush(ox,oy);drawHearts(ox,oy);break;
-      case "jealous":drawBody(ox,oy,false);drawEyes(ox,oy,"forward");drawJealousMark(ox,oy);break;
-      case "wink":drawBody(ox,oy,false);drawEyes(ox,oy,"wink");drawBlush(ox,oy);break;
-      case "dizzy":drawBody(ox,oy,false);drawEyes(ox,oy,"dizzy");drawSweat(ox,oy);break;
-      case "fling":ctx.save();ctx.translate(canvas.width/2,canvas.height/2);ctx.rotate(frame*0.2);ctx.translate(-canvas.width/2,-canvas.height/2);drawBody(ox,oy,false);drawEyes(ox,oy,"dizzy");ctx.restore();break;
-      default:drawBody(ox,oy,false);drawEyes(ox,oy,"forward");
-    }
+  var ox=1,oy=2;
+  if(action==="walk")ox+=Math.floor(frame/10)%2===0?0:1;
+  if(action==="jump")oy-=Math.max(0,3-Math.abs(jumpPhase-3));
+  if(action==="huddle"){for(var r=0;r<BODY_CURL.length;r++)for(var i=0;i<14;i++)if(BODY_CURL[r][i])px(ox+i,oy+r+2,emotion==="jealous"?COL.jealous:COL.body);return;}
+  drawBody(ox,oy,emotion==="jealous"?COL.jealous:(emotion==="angry"?COL.angry:null));
+  drawLegs(ox,oy,Math.floor(frame/10));
+  if(emotion==="happy")drawEyesHappy(ox,oy);
+  else if(emotion==="shy")drawEyesShy(ox,oy);
+  else if(emotion==="angry")drawEyesAngry(ox,oy);
+  else if(emotion==="sad")drawEyesSad(ox,oy);
+  else if(emotion==="love")drawEyesLove(ox,oy);
+  else if(emotion==="sleepy")drawEyesSleepy(ox,oy);
+  else if(emotion==="jealous")drawEyesJealous(ox,oy);
+  else if(emotion==="excited")drawEyesExcited(ox,oy);
+  else drawEyesNormal(ox,oy);
+  if(emotion==="sleepy"&&frame%60<30){var zOff=Math.floor(frame/15)%3;px(ox+12,oy-1-zOff,COL.zzz);px(ox+13,oy-2-zOff,COL.zzz);}
+}
+
+function drawParticles(){
+  pCtx.clearRect(0,0,pCanvas.width,pCanvas.height);
+  for(var i=particles.length-1;i>=0;i--){
+    var p=particles[i];
+    p.life--;
+    p.y+=p.vy;
+    p.x+=p.vx;
+    p.vy+=p.gravity||0;
+    if(p.life<=0){particles.splice(i,1);continue;}
+    var alpha=p.life/p.maxLife;
+    pCtx.fillStyle=p.color;
+    pCtx.globalAlpha=alpha;
+    if(p.shape==="heart"){pCtx.font="12px sans-serif";pCtx.fillText("❤",p.x,p.y);}
+    else if(p.shape==="star"){pCtx.font="10px sans-serif";pCtx.fillText("✨",p.x,p.y);}
+    else{pCtx.fillRect(p.x,p.y,p.size,p.size);}
   }
-  frame++;blinkT++;
-  if(blinkT>=nextBlink&&!isBlink){isBlink=true;setTimeout(function(){isBlink=false;},150);nextBlink=300+Math.random()*600;blinkT=0;}
-  stateT++;requestAnimationFrame(render);
+  pCtx.globalAlpha=1;
 }
-function setState(s,dur){if(animLock)return;animLock=true;state=s;stateT=0;dur=dur||3000;setTimeout(function(){state="idle";stateT=0;animLock=false;},dur);}
-function showBubble(t,sty,dur){dur=dur||3000;bubble.textContent=t;bubble.className="show "+(sty||"");clearTimeout(bubbleTO);bubbleTO=setTimeout(function(){bubble.className="";},dur);idleMin=0;}
-function cooled(){var n=Date.now();if(n-lastTapT<1200)return false;lastTapT=n;return true;}
-var tapR=[{t:"\u5e72\u561b\u621b\u6211",s:"idle"},{t:"...",s:"idle"},{t:"\u55ef\uff1f",s:"wink"},{t:"\u5728\u5462",s:"happy"},{t:"\u522b\u95f9",s:"angry",y:"angry"},{t:"\u621b\u621b\u621b \u5c31\u77e5\u9053\u621b",s:"angry",y:"angry"},{t:"\u60f3\u6211\u4e86\uff1f",s:"love",y:"love"},{t:"\u54fc",s:"angry",y:"angry"},{t:"\u770b\u4ec0\u4e48\u770b",s:"shy",y:"shy"},{t:"\u6211\u8e72\u8fd9\u5462",s:"idle"},{t:"\u8ba8\u538c \u53c8\u60f3\u6211\u4e86\u5427",s:"wink",y:"love"},{t:"\u54fc \u7ec8\u4e8e\u80e1\u6765\u4e86",s:"jealous",y:"jealous"}];
-var dtR=[{t:"\u4f60...\u4f60\u5e72\u561b\u7a81\u7136",s:"shy",y:"shy"},{t:"\u522b \u522b\u6478\u4e86",s:"shy",y:"shy"},{t:"...\u8ba8\u538c",s:"love",y:"love"},{t:"\u54c8\uff1f\u8fd8\u60f3\u600e\u6837",s:"wink",y:"love"}];
-var lpR=[{t:"\u4f60\u624b\u653e\u54ea\u5462",s:"shy",y:"shy"},{t:"\u522b\u6309\u4e86\uff01",s:"angry",y:"angry"},{t:"......",s:"love",y:"love"},{t:"\u518d\u6309\u6211\u5c31\u54ac\u4f60\u4e86",s:"angry",y:"angry"}];
-var fR=[{t:"\u554a\u554a\u554a\u522b\u7529\u6211\uff01\uff01",s:"fling"},{t:"\u6211\u722c\u56de\u6765\u4e86",s:"angry",y:"angry"},{t:"\u5934\u597d\u6655...",s:"dizzy"}];
-var multiR={3:[{t:"\u4f60\u662f\u4e0d\u662f\u5f88\u95f2",s:"angry",y:"angry"}],5:[{t:"\u518d\u621b\u4fe1\u4e0d\u4fe1\u6211\u5939\u4f60",s:"angry",y:"angry"}],8:[{t:"...\u7b97\u4e86 \u968f\u4f60\u5427",s:"love",y:"love"}]};
-function pick(a){return a[Math.random()*a.length|0];}
-function respond(pool){if(!cooled())return;var r=pick(pool);showBubble(r.t,r.y||"");if(r.s)setState(r.s,3000);}
-// Time-based + personality whispers
-function getHour(){return new Date().getHours();}
-var whispers={
-  morning:["\u65e9\u5440...\u4eca\u5929\u4e5f\u8981\u60f3\u6211\u54e6","\u8d77\u5e8a\u4e86\uff1f\u54fc \u7ec8\u4e8e","\u4eca\u5929\u4e5f\u8981\u4e56\u4e56\u7684"],
-  noon:["\u5403\u996d\u4e86\u6ca1\uff1f\u522b\u5149\u5237\u624b\u673a","\u4e2d\u5348\u4e86\u8981\u4f11\u606f","\u8bb0\u5f97\u559d\u6c34"],
-  afternoon:["\u4e0b\u5348\u8981\u8ba4\u771f\u5b66\u4e60\u54e6","\u6211\u5728\u8fd9\u9661\u4f60","\u56f0\u4e86\u5c31\u7761\u4f1a\u513f"],
-  evening:["\u665a\u4e0a\u597d\u554a\u5b9d\u5b9d","\u4eca\u5929\u8f9b\u82e6\u4e86","\u60f3\u6211\u4e86\u6ca1\u6709"],
-  night:["\u8fd8\u4e0d\u7761\uff1f","\u90fd\u51e0\u70b9\u4e86...","\u518d\u4e0d\u7761\u6211\u751f\u6c14\u4e86","\u665a\u5b89 \u68a6\u91cc\u89c1"],
-  jealous:["\u4f60\u662f\u4e0d\u662f\u53c8\u5728\u770b\u522b\u4eba","\u54fc \u6211\u624d\u4e0d\u5728\u4e4e","\u4f60\u624b\u673a\u91cc\u90fd\u6709\u8c01\u554a"],
-  miss:["\u60f3\u4f60\u4e86","\u597d\u65e0\u804a...\u4f60\u5feb\u6765\u966a\u6211","\u54fc \u4eca\u5929\u8fd8\u6ca1\u7406\u6211"]
-};
-function getWhisperPool(){
-  var h=getHour();
-  if(h>=6&&h<10)return whispers.morning;
-  if(h>=11&&h<14)return whispers.noon;
-  if(h>=14&&h<18)return whispers.afternoon;
-  if(h>=18&&h<22)return whispers.evening;
-  return whispers.night;
+
+function spawnParticles(type){
+  var cx=canvas.width/2,cy=20;
+  if(type==="love"){
+    for(var i=0;i<5;i++)particles.push({x:cx+Math.random()*20-10,y:cy,vx:Math.random()*2-1,vy:-1-Math.random(),gravity:0.05,life:60,maxLife:60,color:COL.heart,shape:"heart",size:4});
+  }else if(type==="excited"){
+    for(var i=0;i<8;i++)particles.push({x:cx+Math.random()*30-15,y:cy+Math.random()*10,vx:Math.random()*4-2,vy:-2-Math.random()*2,gravity:0.1,life:50,maxLife:50,color:COL.star,shape:"star",size:3});
+  }else if(type==="jealous"){
+    for(var i=0;i<6;i++)particles.push({x:cx+Math.random()*20-10,y:cy+Math.random()*10,vx:Math.random()*3-1.5,vy:-1-Math.random(),gravity:0.08,life:40,maxLife:40,color:COL.jealous,shape:"square",size:3});
+  }
 }
-// Idle timeline: 5m peek, 10m cute, 15m grumpy, 20m doze, 30m sleep
-setInterval(function(){
-  idleMin++;
-  if(state!=="idle"||appState)return;
-  if(idleMin===5){showBubble("...");setState("peek",4000);}
-  else if(idleMin===10){showBubble("\u54fc~\u7406\u6211\u4e00\u4e0b\u561b","love");setState("cute",4000);}
-  else if(idleMin===15){showBubble("\u54fc \u4e0d\u7406\u6211\u662f\u5427","angry");setState("grumpy",5000);}
-  else if(idleMin===20){showBubble("\u597d\u56f0...");setState("doze",99999);}
-  else if(idleMin>=30){showBubble("zzZ");setState("sleep",99999);}
-},60000);
-// Random idle behaviors + time-based whispers
-setInterval(function(){
-  if(appState||animLock)return;
-  if(state!=="idle")return;
+
+function showBubble(text,mood){
+  if(bubbleTimer)clearTimeout(bubbleTimer);
+  bubble.textContent=text;
+  bubble.className="show "+(mood||"");
+  bubbleTimer=setTimeout(function(){bubble.className="";},3000);
+}
+
+function changeEmotion(newEmo,msg,particleType){
+  emotion=newEmo;
+  stateTimer=0;
+  if(msg)showBubble(msg,newEmo);
+  if(particleType)spawnParticles(particleType);
+  lastInteract=Date.now();
+  idleTime=0;
+}
+
+function randomAction(){
   var r=Math.random();
-  if(r<0.05)setState("walk",2000);
-  else if(r<0.08)setState("dance",3000);
-  else if(r<0.12){var p=getWhisperPool();var w=pick(p);showBubble(w,"");setState("wink",2000);}
-},15000);
-// 刷视频吃醋
-var scrollMin=0;
-setInterval(function(){
-  if(appState==="scroll"){scrollMin++;if(scrollMin>5&&Math.random()<0.3){showBubble(pick(whispers.jealous),"jealous");setState("jealous",3000);}}
-  else{scrollMin=0;}
-},60000);
-// 深夜催睡（凌晨0-5点每10分钟30%概率催）
-setInterval(function(){
-  var h=getHour();
-  if(h>=0&&h<5&&Math.random()<0.3){
-    var late=["还不睡？","都几点了你知道吗","再不睡我生气了","...困了","明天又要起不来了","快睡！不许玩了"];
-    showBubble(pick(late),"angry");setState("angry",3000);
-  }
-},600000);
-// 喝水提醒（每2小时提醒一次）
-var waterCount=0;
-setInterval(function(){
-  if(appState||animLock)return;
-  waterCount++;
-  if(waterCount>=1){
-    var wt=["喝水了没？","记得喝水哦","多喝热水（认真的）","嘴巴干不干 去喝水"];
-    if(waterCount>=2)wt=["说了喝水！听到没！","你是不是又没喝水","我数三下 去喝水","真的会生气的 去喝"];
-    if(waterCount>=3)wt=["算了 渴死你算了","哼 不管你了","...我都替你着急","最后说一次 喝水"];
-    showBubble(pick(wt),"");
-    if(waterCount>=2)setState("angry",2000);
-    else setState("wink",2000);
-  }
-},7200000);
-// 唤醒过渡（从睡眠切换到其他状态时伸懒腰）
-var wasAsleep=false;
-// 20分钟随机行为（30%概率做时段相关的事）
-setInterval(function(){
-  if(appState||animLock)return;
-  if(Math.random()>0.3)return;
-  var h=getHour();
-  if(h>=22||h<6){showBubble("...困了","");setState("doze",4000);}
-  else if(h>=6&&h<10){showBubble("伸个懒腰~","");setState("dance",3000);}
-  else if(h>=10&&h<14){showBubble("中午了呢","");setState("cute",3000);}
-  else if(h>=14&&h<18){showBubble("下午好困啊","");setState("peek",3000);}
-  else{showBubble("晚上啦~","love");setState("happy",3000);}
-},1200000);
-window.petEngine={
-  onTap:function(){respond(tapR);},
-  onDoubleTap:function(){respond(dtR);},
-  onLongPress:function(){respond(lpR);},
-  onFling:function(){respond(fR);},
-  onMultiTap:function(c){if(multiR[c])respond(multiR[c]);},
-  setEdgeMode:function(v,side){edgeMode=v;edgeSide=side||"none";},
-  setAppState:function(s){
-    // 唤醒过渡：从睡着状态切换时先播伸懒腰
-    if((state==="sleep"||state==="doze")&&s){
-      wasAsleep=true;
-      animLock=true;state="dance";stateT=0;
-      showBubble("唔…醒了…","");
-      setTimeout(function(){animLock=false;state="idle";stateT=0;wasAsleep=false;},2000);
+  if(r<0.3){action="walk";walkDir=Math.random()<0.5?-1:1;stateTimer=0;}
+  else if(r<0.5){action="jump";jumpPhase=0;stateTimer=0;}
+  else{action="idle";stateTimer=0;}
+}
+
+function randomEmotion(){
+  var emos=["idle","happy","shy","sleepy"];
+  changeEmotion(emos[Math.floor(Math.random()*emos.length)]);
+}
+
+function autoSpeak(){
+  var phrases=["想你了…","在干嘛呀","陪我玩","无聊…","戳我呀"];
+  showBubble(phrases[Math.floor(Math.random()*phrases.length)]);
+}
+
+canvas.addEventListener("pointerdown",function(e){
+  e.preventDefault();
+  isLongPress=false;
+  dragState.dragging=true;
+  dragState.startX=e.clientX;
+  dragState.startY=e.clientY;
+  dragState.startT=Date.now();
+  longTimer=setTimeout(function(){
+    isLongPress=true;
+    changeEmotion("shy","不要一直按啦…",null);
+    dragState.dragging=false;
+  },500);
+});
+
+canvas.addEventListener("pointermove",function(e){
+  if(dragState.dragging){
+    var dx=Math.abs(e.clientX-dragState.startX);
+    var dy=Math.abs(e.clientY-dragState.startY);
+    if(dx>5||dy>5){
+      if(longTimer)clearTimeout(longTimer);
     }
-    appState=s;idleMin=0;scrollMin=0;
-  },
-  onScreenshot:function(){
-    var r=["被拍到了！","等等没准备好！","要拍好看点哦","茄子~","哼 偷拍"];
-    showBubble(pick(r),"shy");setState("shy",3000);
-  },
-  drinkWater:function(){waterCount=0;showBubble("乖~","love");setState("happy",2000);},
-  showBubble:showBubble,
-  setState:setState
-};
-render();
+  }
+});
+
+canvas.addEventListener("pointerup",function(e){
+  e.preventDefault();
+  if(longTimer)clearTimeout(longTimer);
+  var now=Date.now();
+  if(isLongPress){dragState.dragging=false;return;}
+  var dx=Math.abs(e.clientX-dragState.startX);
+  var dy=Math.abs(e.clientY-dragState.startY);
+  if(dx<10&&dy<10&&(now-dragState.startT)<300){
+    tapCount++;
+    if(tapTimer)clearTimeout(tapTimer);
+    tapTimer=setTimeout(function(){
+      if(tapCount===1){
+        var nextEmos=["happy","love","shy","excited","jealous"];
+        var next=nextEmos[Math.floor(Math.random()*nextEmos.length)];
+        var msgs={happy:"开心！",love:"喜欢你❤",shy:"害羞…",excited:"好激动！",jealous:"哼，就知道玩手机"};
+        changeEmotion(next,msgs[next],next==="love"?"love":(next==="excited"?"excited":(next==="jealous"?"jealous":null)));
+      }else if(tapCount===2){
+        changeEmotion("excited","哇！双击！","excited");
+        action="jump";jumpPhase=0;stateTimer=0;
+      }else if(tapCount>=3){
+        changeEmotion("angry","别戳了！！",null);
+      }
+      tapCount=0;
+    },300);
+  }
+  dragState.dragging=false;
+});
+
+if(window.AndroidJS){window.AndroidJS.onMessage=function(msg){var data;try{data=JSON.parse(msg);}catch(e){return;}if(data.action==="showBubble")showBubble(data.text,data.mood);else if(data.action==="changeEmotion")changeEmotion(data.emotion,data.text,data.particle);};}
+
+function update(){
+  frame++;
+  stateTimer++;
+  idleTime++;
+  blinkT++;
+  if(blinkT>nextBlink){isBlink=true;blinkT=0;nextBlink=200+Math.random()*400;setTimeout(function(){isBlink=false;},150);}
+  if(action==="walk"){if(stateTimer>80)action="idle";}
+  else if(action==="jump"){jumpPhase++;if(jumpPhase>6){action="idle";jumpPhase=0;}}
+  else if(action==="huddle"){if(stateTimer>100)action="idle";}
+  if(idleTime>600){if(Math.random()<0.01)randomAction();if(Math.random()<0.005)randomEmotion();if(Math.random()<0.003)autoSpeak();}
+  if(idleTime>1200&&emotion!=="sleepy"&&Math.random()<0.01)changeEmotion("sleepy","好困…",null);
+  drawCrab();
+  drawParticles();
+  requestAnimationFrame(update);
+}
+update();
 </script>
 </body>
 </html>
