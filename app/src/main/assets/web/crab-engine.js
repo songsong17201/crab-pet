@@ -154,21 +154,30 @@ class CrabEngine {
     drawBody() {
         const { body } = this.skeleton;
         this.ctx.save();
-        this.ctx.translate(body.x, body.y);
-        this.ctx.rotate(body.rotation * Math.PI / 180);
-        this.ctx.scale(body.scale, body.scale);
+        this.ctx.translate(body.x - 42, body.y - 24);
         
-        // 身体主体（圆润的珊瑚橙色圆形，像Claude PC那样）
-        this.ctx.fillStyle = '#E87040';
-        this.ctx.beginPath();
-        this.ctx.ellipse(0, 0, 30, 28, 0, 0, Math.PI * 2);
-        this.ctx.fill();
+        // Clawdy像素矩阵 (14x8, SCALE=6, 每格6px)
+        const S = 6;
+        const color = '#E07A5F';
+        const BODY_DATA = [
+            [0,0,0,1,1,1,1,1,1,1,1,0,0,0],
+            [0,0,0,1,1,1,1,1,1,1,1,0,0,0],
+            [0,1,1,1,1,1,1,1,1,1,1,1,1,0],
+            [0,1,1,1,1,1,1,1,1,1,1,1,1,0],
+            [0,0,0,1,1,1,1,1,1,1,1,0,0,0],
+            [0,0,0,1,1,1,1,1,1,1,1,0,0,0],
+            [0,0,0,1,0,1,0,0,1,0,1,0,0,0],
+            [0,0,0,1,0,1,0,0,1,0,1,0,0,0],
+        ];
         
-        // 柔和高光
-        this.ctx.fillStyle = 'rgba(255, 180, 140, 0.4)';
-        this.ctx.beginPath();
-        this.ctx.ellipse(-8, -8, 12, 10, -0.3, 0, Math.PI * 2);
-        this.ctx.fill();
+        this.ctx.fillStyle = color;
+        for (let r = 0; r < BODY_DATA.length; r++) {
+            for (let c = 0; c < BODY_DATA[r].length; c++) {
+                if (BODY_DATA[r][c]) {
+                    this.ctx.fillRect(c * S, r * S, S, S);
+                }
+            }
+        }
         
         this.ctx.restore();
     }
@@ -193,11 +202,8 @@ class CrabEngine {
     }
     
     drawClaw() {
-        // 圆润小钳子（像Claude PC那样，圆圆的椭圆形）
-        this.ctx.fillStyle = '#F08050';
-        this.ctx.beginPath();
-        this.ctx.ellipse(8, 0, 8, 6, 0, 0, Math.PI * 2);
-        this.ctx.fill();
+        // Clawdy风格：钳子就是身体侧面突出的1-2个像素方块
+        // 已经通过BODY_DATA的宽行(row2,3)实现了，不需要额外画
     }
     
     drawLegs() {
@@ -225,69 +231,23 @@ class CrabEngine {
     drawFace() {
         const { body } = this.skeleton;
         this.ctx.save();
-        this.ctx.translate(body.x, body.y);
+        this.ctx.translate(body.x - 42, body.y - 24);
         
-        // 眼睛（在身体中上部，圆润的黑点）
+        const S = 6;
+        
+        // 眼睛：Clawdy的眼睛位置 EYE_L=(4,1) EYE_R=(9,1)
         if (this.state.eyesOpen) {
-            // 白色眼白
-            this.ctx.fillStyle = '#FFFFFF';
-            this.ctx.beginPath();
-            this.ctx.arc(-8, -8, 5, 0, Math.PI * 2);
-            this.ctx.arc(8, -8, 5, 0, Math.PI * 2);
-            this.ctx.fill();
-            // 黑色瞳孔
-            this.ctx.fillStyle = '#2D2D2D';
-            this.ctx.beginPath();
-            this.ctx.arc(-8, -7, 3, 0, Math.PI * 2);
-            this.ctx.arc(8, -7, 3, 0, Math.PI * 2);
-            this.ctx.fill();
-        } else {
-            // 闭眼 - 小弧线
-            this.ctx.strokeStyle = '#2D2D2D';
-            this.ctx.lineWidth = 2;
-            this.ctx.lineCap = 'round';
-            this.ctx.beginPath();
-            this.ctx.arc(-8, -8, 3, 0, Math.PI);
-            this.ctx.stroke();
-            this.ctx.beginPath();
-            this.ctx.arc(8, -8, 3, 0, Math.PI);
-            this.ctx.stroke();
+            this.ctx.fillStyle = '#000000';
+            this.ctx.fillRect(4 * S, 1 * S, S, S); // 左眼
+            this.ctx.fillRect(9 * S, 1 * S, S, S); // 右眼
         }
+        // 闭眼时不画眼睛（相当于blink）
         
-        // 嘴巴（根据情绪）
-        this.ctx.strokeStyle = '#2D2D2D';
-        this.ctx.lineWidth = 1.5;
-        this.ctx.lineCap = 'round';
-        
-        switch (this.state.emotion) {
-            case 'happy':
-                this.ctx.beginPath();
-                this.ctx.arc(0, 5, 4, 0, Math.PI);
-                this.ctx.stroke();
-                break;
-            case 'sad':
-                this.ctx.beginPath();
-                this.ctx.arc(0, 8, 4, Math.PI, 0);
-                this.ctx.stroke();
-                break;
-            case 'shy':
-                // 脸红
-                this.ctx.fillStyle = 'rgba(255, 120, 120, 0.4)';
-                this.ctx.beginPath();
-                this.ctx.arc(-12, 3, 4, 0, Math.PI * 2);
-                this.ctx.arc(12, 3, 4, 0, Math.PI * 2);
-                this.ctx.fill();
-                // 小嘴
-                this.ctx.beginPath();
-                this.ctx.arc(0, 5, 3, 0.2, Math.PI - 0.2);
-                this.ctx.stroke();
-                break;
-            default:
-                // 默认小弧线微笑
-                this.ctx.beginPath();
-                this.ctx.arc(0, 5, 3, 0.2, Math.PI - 0.2);
-                this.ctx.stroke();
-                break;
+        // 害羞时画腮红
+        if (this.state.emotion === 'shy' || this.state.emotion === 'happy') {
+            this.ctx.fillStyle = '#FAC8D8';
+            this.ctx.fillRect(3 * S, 2 * S, S, S); // 左腮红
+            this.ctx.fillRect(10 * S, 2 * S, S, S); // 右腮红
         }
         
         this.ctx.restore();
