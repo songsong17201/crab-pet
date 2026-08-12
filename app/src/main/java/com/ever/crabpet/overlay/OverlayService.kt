@@ -100,8 +100,8 @@ class OverlayService : Service() {
                 javaScriptEnabled = true
                 domStorageEnabled = true
                 allowFileAccess = true
-                useWideViewPort = false
-                loadWithOverviewMode = false
+                useWideViewPort = true
+                loadWithOverviewMode = true
                 // 华为WebView需要关闭硬件加速才能渲染透明背景
                 mediaPlaybackRequiresUserGesture = false
             }
