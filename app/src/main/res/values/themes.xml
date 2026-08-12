@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.CrabPet" parent="Theme.AppCompat.Light.DarkActionBar">
+        <item name="colorPrimary">#FF9966</item>
+        <item name="colorPrimaryDark">#CC6633</item>
+        <item name="colorAccent">#FFB399</item>
+    </style>
+</resources>

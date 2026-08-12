@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">蟹蟹桌宠</string>
+    <string name="notification_title">小螃蟹正在陪伴你</string>
+    <string name="notification_content">点击可以关闭桌宠</string>
+</resources>

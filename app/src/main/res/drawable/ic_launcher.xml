@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- 螃蟹身体 -->
+    <path
+        android:fillColor="#FF9966"
+        android:pathData="M24,20 C18,20 14,24 14,28 C14,34 18,36 24,36 C30,36 34,34 34,28 C34,24 30,20 24,20 Z" />
+    <!-- 左钳 -->
+    <path
+        android:fillColor="#FF9966"
+        android:pathData="M14,24 C12,22 8,22 8,25 C8,28 12,28 14,26 Z" />
+    <!-- 右钳 -->
+    <path
+        android:fillColor="#FF9966"
+        android:pathData="M34,24 C36,22 40,22 40,25 C40,28 36,28 34,26 Z" />
+    <!-- 左眼 -->
+    <path
+        android:fillColor="#333333"
+        android:pathData="M20,26 C20,25 21,24 22,24 C23,24 24,25 24,26 C24,27 23,28 22,28 C21,28 20,27 20,26 Z" />
+    <!-- 右眼 -->
+    <path
+        android:fillColor="#333333"
+        android:pathData="M24,26 C24,25 25,24 26,24 C27,24 28,25 28,26 C28,27 27,28 26,28 C25,28 24,27 24,26 Z" />
+</vector>
