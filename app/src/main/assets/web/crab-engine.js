@@ -154,10 +154,9 @@ class CrabEngine {
     drawBody() {
         const { body } = this.skeleton;
         this.ctx.save();
-        this.ctx.translate(body.x - 42, body.y - 24);
         
-        // Clawdy像素矩阵 (14x8, SCALE=6, 每格6px)
-        const S = 6;
+        // Clawdy像素矩阵 (14x8, SCALE=4, 每格4px，总大小56x32px)
+        const S = 4;
         const color = '#E07A5F';
         const BODY_DATA = [
             [0,0,0,1,1,1,1,1,1,1,1,0,0,0],
@@ -170,11 +169,15 @@ class CrabEngine {
             [0,0,0,1,0,1,0,0,1,0,1,0,0,0],
         ];
         
+        // 居中绘制：Canvas 200x200，螃蟹 56x32，居中位置 (72, 84)
+        const offsetX = 72;
+        const offsetY = 84;
+        
         this.ctx.fillStyle = color;
         for (let r = 0; r < BODY_DATA.length; r++) {
             for (let c = 0; c < BODY_DATA[r].length; c++) {
                 if (BODY_DATA[r][c]) {
-                    this.ctx.fillRect(c * S, r * S, S, S);
+                    this.ctx.fillRect(offsetX + c * S, offsetY + r * S, S, S);
                 }
             }
         }
@@ -183,27 +186,25 @@ class CrabEngine {
     }
     
     drawClaws() {
-        const { leftClaw, rightClaw } = this.skeleton;
-        
-        // 左钳
+        // 钳子：BODY_DATA已经包含了row2/3的宽行（col1-2, col11-12）
+        // 额外在侧面各加2个像素方块作为钳尖，颜色稍深
+        const S = 4;
+        const offsetX = 72;
+        const offsetY = 84;
+        const clawColor = '#C55030';
         this.ctx.save();
-        this.ctx.translate(leftClaw.x, leftClaw.y);
-        this.ctx.rotate(leftClaw.rotation * Math.PI / 180);
-        this.drawClaw();
-        this.ctx.restore();
-        
-        // 右钳
-        this.ctx.save();
-        this.ctx.translate(rightClaw.x, rightClaw.y);
-        this.ctx.rotate(rightClaw.rotation * Math.PI / 180);
-        this.ctx.scale(-1, 1); // 镜像
-        this.drawClaw();
+        this.ctx.fillStyle = clawColor;
+        // 左钳尖 (col0, row2) 和 (col0, row3)
+        this.ctx.fillRect(offsetX + 0 * S, offsetY + 2 * S, S, S);
+        this.ctx.fillRect(offsetX + 0 * S, offsetY + 3 * S, S, S);
+        // 右钳尖 (col13, row2) 和 (col13, row3)
+        this.ctx.fillRect(offsetX + 13 * S, offsetY + 2 * S, S, S);
+        this.ctx.fillRect(offsetX + 13 * S, offsetY + 3 * S, S, S);
         this.ctx.restore();
     }
     
     drawClaw() {
-        // Clawdy风格：钳子就是身体侧面突出的1-2个像素方块
-        // 已经通过BODY_DATA的宽行(row2,3)实现了，不需要额外画
+        // 已在 drawClaws 里处理，不需要单独调用
     }
     
     drawLegs() {
@@ -231,23 +232,32 @@ class CrabEngine {
     drawFace() {
         const { body } = this.skeleton;
         this.ctx.save();
-        this.ctx.translate(body.x - 42, body.y - 24);
         
-        const S = 6;
+        const S = 4;
+        const offsetX = 72;
+        const offsetY = 84;
         
         // 眼睛：Clawdy的眼睛位置 EYE_L=(4,1) EYE_R=(9,1)
+        // 睁眼时是2个竖着的像素（row 0和row 1），眨眼时只画row 1（横着的一个像素）
+        this.ctx.fillStyle = '#000000';
         if (this.state.eyesOpen) {
-            this.ctx.fillStyle = '#000000';
-            this.ctx.fillRect(4 * S, 1 * S, S, S); // 左眼
-            this.ctx.fillRect(9 * S, 1 * S, S, S); // 右眼
+            // 左眼 2x1 竖着
+            this.ctx.fillRect(offsetX + 4 * S, offsetY + 0 * S, S, S);
+            this.ctx.fillRect(offsetX + 4 * S, offsetY + 1 * S, S, S);
+            // 右眼 2x1 竖着
+            this.ctx.fillRect(offsetX + 9 * S, offsetY + 0 * S, S, S);
+            this.ctx.fillRect(offsetX + 9 * S, offsetY + 1 * S, S, S);
+        } else {
+            // 闭眼：只画 row 1（横着一个像素表示眯眼）
+            this.ctx.fillRect(offsetX + 4 * S, offsetY + 1 * S, S, S);
+            this.ctx.fillRect(offsetX + 9 * S, offsetY + 1 * S, S, S);
         }
-        // 闭眼时不画眼睛（相当于blink）
         
         // 害羞时画腮红
         if (this.state.emotion === 'shy' || this.state.emotion === 'happy') {
             this.ctx.fillStyle = '#FAC8D8';
-            this.ctx.fillRect(3 * S, 2 * S, S, S); // 左腮红
-            this.ctx.fillRect(10 * S, 2 * S, S, S); // 右腮红
+            this.ctx.fillRect(offsetX + 2 * S, offsetY + 2 * S, S, S); // 左腮红
+            this.ctx.fillRect(offsetX + 11 * S, offsetY + 2 * S, S, S); // 右腮红
         }
         
         this.ctx.restore();
