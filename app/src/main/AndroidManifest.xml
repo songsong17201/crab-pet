@@ -29,7 +29,6 @@
 
         <service
             android:name=".overlay.OverlayService"
-            android:foregroundServiceType="specialUse"
             android:exported="false" />
 
         <service

@@ -9,24 +9,27 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="蟹蟹桌宠"
-        android:textSize="24sp"
+        android:text="🦀 蟹蟹桌宠"
+        android:textSize="28sp"
         android:textStyle="bold"
         android:layout_marginBottom="16dp"/>
 
     <TextView
+        android:id="@+id/tv_status"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="小螃蟹会出现在你的桌面上陪伴你~"
+        android:text="检查权限中..."
         android:textSize="16sp"
         android:gravity="center"
-        android:layout_marginBottom="24dp"/>
+        android:layout_marginBottom="32dp"/>
 
-    <TextView
+    <Button
+        android:id="@+id/btn_start"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="需要权限：\n• 悬浮窗权限\n• 使用情况访问权限\n• 通知监听权限"
-        android:textSize="14sp"
-        android:lineSpacingExtra="4dp"/>
+        android:text="启动桌宠"
+        android:textSize="18sp"
+        android:paddingHorizontal="32dp"
+        android:paddingVertical="12dp"/>
 
 </LinearLayout>

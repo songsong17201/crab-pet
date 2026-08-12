@@ -82,7 +82,11 @@ class OverlayService : Service() {
 
         // 注册关键词广播
         val filter = IntentFilter("com.ever.crabpet.KEYWORD_DETECTED")
-        registerReceiver(keywordReceiver, filter, RECEIVER_NOT_EXPORTED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(keywordReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(keywordReceiver, filter)
+        }
     }
 
     private fun setupOverlayView() {
