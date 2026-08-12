@@ -70,7 +70,12 @@ class OverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, createNotification())
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(NOTIFICATION_ID, createNotification(),
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(NOTIFICATION_ID, createNotification())
+        }
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         dialogueManager = DialogueManager()
@@ -95,14 +100,32 @@ class OverlayService : Service() {
                 javaScriptEnabled = true
                 domStorageEnabled = true
                 allowFileAccess = true
+                useWideViewPort = false
+                loadWithOverviewMode = false
+                // 华为WebView需要关闭硬件加速才能渲染透明背景
+                mediaPlaybackRequiresUserGesture = false
             }
-            setBackgroundColor(0x00000000)
+            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            // 华为/鸿蒙系统确保透明
+            setLayerType(android.view.View.LAYER_TYPE_NONE, null)
+            isVerticalScrollBarEnabled = false
+            isHorizontalScrollBarEnabled = false
+            visibility = android.view.View.VISIBLE
+            // WebView加载完成后强制刷新一次确保渲染
+            webViewClient = object : android.webkit.WebViewClient() {
+                override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    view?.visibility = android.view.View.VISIBLE
+                    view?.requestLayout()
+                    view?.invalidate()
+                }
+            }
             loadUrl("file:///android_asset/web/crab.html")
         }
 
         val params = WindowManager.LayoutParams(
-            200,
-            200,
+            300,
+            300,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             } else {
@@ -110,12 +133,14 @@ class OverlayService : Service() {
                 WindowManager.LayoutParams.TYPE_PHONE
             },
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                    WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            PixelFormat.RGBA_8888
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = 100
-            y = 300
+            y = 400
         }
 
         overlayView.setOnTouchListener { _, event ->
@@ -380,7 +405,7 @@ class OverlayService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("蟹蟹桌宠")
             .setContentText("小螃蟹正在陪伴你~")
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }
